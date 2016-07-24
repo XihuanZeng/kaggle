@@ -15,7 +15,7 @@ def main():
     #train_set = pd.read_csv(os.path.join(datadir, 'train.csv'))
     #test_set = pd.read_csv(os.path.join(datadir, 'test.csv'))
 
-    
+
 
     users = train_set['user_id'].unique()
     users = random.sample(users, sample_size)
