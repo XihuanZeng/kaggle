@@ -21,3 +21,30 @@ while 1:
 users = list(set(users))
 users.sort()
 """
+
+
+"""
+def generate_libffm_kth_model(data, dict_list, categorical_features, k):
+    f = open('../data/libffm_data/train.txt', 'wb')
+    g = open('../data/libffm_data/validate.txt', 'wb')
+    for index, row in data.iterrows():
+        is_booking = row['is_booking']
+        if is_booking == 0:
+            continue
+        cluster = row['hotel_cluster']
+        writable = ''
+        for j in range(len(dict_list)):
+            writable += '%s:%s:1 ' % (j, dict_list[j][str(row[categorical_features[j]])])
+        if cluster == k:
+            if row['month'] <= 10:
+                f.write('1' + ' ' + writable + '\n')
+            else:
+                g.write('1' + ' ' + writable + '\n')
+        else:
+            if row['month'] <= 10:
+                f.write('0' + ' ' + writable + '\n')
+            else:
+                g.write('0' + ' ' + writable + '\n')
+    f.close()
+    g.close()
+"""
