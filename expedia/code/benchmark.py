@@ -1,7 +1,7 @@
 # this script implement a rule-based method. to be specific, when a query is coming, we first check srch_destination_id and
 # use the most popular 5 hotel cluster of that srch_destination_id as the prediction.
 # if we cannot get 5, then we move to hotel_market, then hotel_country, then 5 most popular hotel cluster for whole dataset
-
+# we will use the magic ratio 3:17, i,e a click count as 3 and a book count as 17
 
 import pandas as pd
 from collections import defaultdict
