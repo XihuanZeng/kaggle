@@ -1,7 +1,4 @@
-# this script create 3 datasets, hold-out, train and validation.
-# hold out set has all book and click record prior to 2014-01-01
-# train set has book and click record within 2014-01-01 to 2014-08-31 that belongs to user that appears in hold-out set
-# test set has book and click record after 2014-09-01 that belongs to user that appears in hold-out set
+# this script is abandoned
 
 import math
 import os

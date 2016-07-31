@@ -10,8 +10,12 @@ import pandas as pd
 import argparse
 
 
-def generate_libffm_kth_model(data, dict_list, categorical_features, k):
-    f = open('../data/libffm_data/train.txt', 'wb')
+def generate_libffm_kth_model(data, categorical_features, k, output_file):
+    f = open(output_file, 'wb')
+    dict_list = []
+    for categorical_feature in categorical_features:
+        g = json.load(open('../data/dict/%s.json' % categorical_feature))
+        dict_list.append(g)
     for index, row in data.iterrows():
         is_booking = row['is_booking']
         if is_booking == 0:
@@ -36,11 +40,7 @@ def main():
     categorical_features = ['site_name', 'posa_continent', 'user_location_country', 'user_location_region', 'user_location_city',
                             'is_mobile', 'is_package', 'channel', 'srch_destination_id', 'hotel_continent', 'hotel_country',
                             'hotel_market']
-    dict_list = []
-    for categorical_feature in categorical_features:
-        g = json.load(open('../data/dict/%s.json' % categorical_feature))
-        dict_list.append(g)
-    generate_libffm_kth_model(data, dict_list, categorical_features, k)
+    generate_libffm_kth_model(data, categorical_features, k, output_file = '../data/libffm_data/train.txt')
 
 if __name__ == '__main__':
     main()

@@ -48,3 +48,23 @@ def generate_libffm_kth_model(data, dict_list, categorical_features, k):
     f.close()
     g.close()
 """
+import pandas as pd
+data = pd.read_csv('/home/xihuan/gitrepos/kaggle/expedia/data/model_input/train/train0.csv')
+
+data.columns.values
+
+test = pd.read_csv('/home/xihuan/gitrepos/kaggle/expedia/data/model_input/test/test0.csv')
+test.columns.values
+
+"""
+array(['Unnamed: 0', 'Unnamed: 0.1', 'Unnamed: 0.1', 'date_time',
+       'site_name', 'posa_continent', 'user_location_country',
+       'user_location_region', 'user_location_city',
+       'orig_destination_distance', 'user_id', 'is_mobile', 'is_package',
+       'channel', 'srch_ci', 'srch_co', 'srch_adults_cnt',
+       'srch_children_cnt', 'srch_rm_cnt', 'srch_destination_id',
+       'srch_destination_type_id', 'is_booking', 'cnt', 'hotel_continent',
+       'hotel_country', 'hotel_market', 'hotel_cluster', 'year', 'month',
+       'y', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
+       'c10', 'c11', 'libffm_score'], dtype=object)
+"""
