@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import re
 from nltk.stem import PorterStemmer
-from Parser import
+from Parser import SimpleWordParser
 
 
 MARK_ANSWER_ALL  = ' <ALL>'
@@ -44,6 +44,19 @@ def sub_complex_answers(train):
 
 
 def prp_binary_dataf(train):
+    """
+    :param train: pandas df
+    :return:
+    this function expand each question into 4 rows, one for each answer
+    e.g How many hours in a day? A.22 B.23 C.24 D.25 other_features
+    Now becomes
+    How many hours in a day? A.22 other_fearures False
+    How many hours in a day? B.23 other_fearures False
+    How many hours in a day? C.24 other_fearures True
+    How many hours in a day? D.25 other_fearures False
+
+    The reason of doing this is we want to fit a binary classifier than gives scores to each ans for given question
+    """
     stemmer = PorterStemmer()
     parser = SimpleWordParser(word_func=stemmer.stem, min_word_length=1, tolower=True, ascii_conversion=True, ignore_special_words=False)
     indices, questions, answers, correct, ans_names, more_cols_vals = [], [], [], [], [], []
@@ -92,3 +105,5 @@ def prp_binary_dataf(train):
     for icol,mcol in enumerate(more_cols):
         pdict[mcol] = np.array([vals[icol] for vals in more_cols_vals])
     return pd.DataFrame(pdict)
+
+

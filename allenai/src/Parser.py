@@ -49,7 +49,7 @@ class SimpleWordParser(WordParser):
         """
         :param stop_regexp: word tokenizer
         :param min_word_length: a word is treat as a word if it is at least 2 char long
-        :param word_func:
+        :param word_func: the function applied to each word, e.g stemmer function
         :param tolower: whether we first lower all the words, this is always set True
         :param ascii_conversion: whether we convert all char to utf-8, always set True, refer to NLPUtils.Ascii.Converter
         :param ignore_special_words: whether we skip all special words, refer to NLPUtils.SpecialWords
