@@ -8,10 +8,28 @@ from Parser import SimpleWordParser
 from bs4 import BeautifulSoup as bs
 from HtmlReader import HtmlReader
 from TextReader import TextReader
-
-
-
+from WikiCorpusBuilder import WikiCorpusBuilder
+from LuceneCorpus import LuceneCorpus
+from nltk.stem.snowball import EnglishStemmer
+from nltk.stem.lancaster import LancasterStemmer
+from nltk.stem.porter import PorterStemmer
 from IO import load_from_pkl, save_to_pkl
+
+
+import lucene
+from java.io import File, StringReader
+from org.apache.lucene.analysis.core import WhitespaceAnalyzer
+from org.apache.lucene.analysis.miscellaneous import LimitTokenCountAnalyzer
+from org.apache.lucene.analysis.standard import StandardAnalyzer
+from org.apache.lucene.document import Document, Field, StoredField, StringField, TextField
+from org.apache.lucene.search.similarities import BM25Similarity
+from org.apache.lucene.index import IndexWriter, IndexWriterConfig, DirectoryReader, MultiFields, Term
+from org.apache.lucene.queryparser.classic import MultiFieldQueryParser, QueryParser
+from org.apache.lucene.search import BooleanClause, IndexSearcher, TermQuery
+from org.apache.lucene.store import MMapDirectory, SimpleFSDirectory
+from org.apache.lucene.util import BytesRefIterator, Version
+
+
 
 def add_qa_features(train):
     '''
@@ -104,183 +122,35 @@ class FeatureExtractor(object):
             textr = TextReader(min_chars_per_line=1, min_words_per_section=25)
             locdic = textr.read(dir='%s/CK12' % corpus_dir,
                                 outfile=self.ck12text_corpus,
-                                first_line_regexp='^(C HAPTER)', # see "Peoples-Physics-Book-Basic_b_v10_zgo_s1.text"
+                                # see "Peoples-Physics-Book-Basic_b_v10_zgo_s1.text" for instance
+                                # each chapter is begin with 'CHAPTER'
+                                first_line_regexp='^(CHAPTER)',
                                 action='write')
 
-    def prepare_ck12text_sent_corpus(self, corpus_dir):
-        self.ck12text_sent_corpus = '%s/CK12/ck12_text_sentences.txt' % corpus_dir
-        if not os.path.exists(self.ck12text_sent_corpus):
-            textr = SentenceReader(min_chars_per_line=1, min_words_per_section=10)
-            locdic = textr.read(dir='%s/CK12' % corpus_dir,
-                                outfile=self.ck12text_sent_corpus,
-                                sentence_sep='. ',
-                                action='write')
-
-
-
-    def prepare_corpuses(self, corpus_dir, train_b, valid_b, prp_wiki_corpuses=True):
-        '''
-        Prepare all the corpus files we shall be using. This needs to be done only once.
-        '''
-        if self.print_level > 0:
-            print '-> Preparing corpuses'
-
-        # Prepare CK-12 HTML corpus
-        self.ck12html_corpus = '%s/CK12/OEBPS/ck12.txt' % corpus_dir
-        if not os.path.exists(self.ck12html_corpus):
-            # Doc per HTML section (h1-4)
-            htmlr = HtmlReader(min_chars_per_line=1, min_words_per_section=20)
-            locdic = htmlr.read(htmldir='%s/CK12/OEBPS' % corpus_dir,
-                                outfile=self.ck12html_corpus,
-                                ignore_sections=set(['explore more.*', 'review', 'practice', 'references']),
-                                stop_words=None, pos_words=set([]), corpus_words=None,
-                                min_pos_words_in_page_name=0, min_pos_words_in_section=0, action='write')
-
-        # Prepare CK-12 HTML paragraph corpus
-        # this is almost the same as last one, but section_regexp is slightly different which contains tags <p>...</p>
-        # the last one we concatnate different paragraph of same title together, but here we split different paragraphs to different sections under same title
-        self.ck12html_para_corpus = '%s/CK12/OEBPS/ck12_paragraphs.txt' % corpus_dir
-        if not os.path.exists(self.ck12html_para_corpus):
-            # Doc per HTML paragraph
-            htmlr = HtmlReader(min_chars_per_line=1, min_words_per_section=25)
-            locdic = htmlr.read(htmldir='%s/CK12/OEBPS' % corpus_dir,
-                                outfile=self.ck12html_para_corpus,
-                                ignore_sections=set(['explore more', 'review', 'references']),
-                                section_regexp='(?:<p[^\>]*>)|(?:<h[1-4][^>]*>([^<]+)<[\/]h[1-4]>)',
-                                stop_words=None, pos_words=set([]), corpus_words=None,
-                                min_pos_words_in_page_name=0, min_pos_words_in_section=0, action='write')
-
-        # Prepare CK-12 text corpus
-        # more details see Cardal_TextReader
-        # this will create num_textbook pages, each one has around 5000 sections which are text paragraphs
-        self.ck12text_corpus = '%s/CK12/ck12_text.txt' % corpus_dir
-        if not os.path.exists(self.ck12text_corpus):
-            textr = TextReader(min_chars_per_line=1, min_words_per_section=25)
-            locdic = textr.read(dir='%s/CK12' % corpus_dir,
-                                outfile=self.ck12text_corpus,
-                                first_line_regexp='^(C HAPTER)', # see "Peoples-Physics-Book-Basic_b_v10_zgo_s1.text"
-                                action='write')
-
-
-        # Prepare CK-12 text sentences corpus
-        # more details see Cardal_SentenceReader
-        # this is almost the same as above, but to make each sentence(if satisfy some conditions) as a section
-        self.ck12text_sent_corpus = '%s/CK12/ck12_text_sentences.txt' % corpus_dir
-        if not os.path.exists(self.ck12text_sent_corpus):
-            textr = SentenceReader(min_chars_per_line=1, min_words_per_section=10)
-            locdic = textr.read(dir='%s/CK12' % corpus_dir,
-                                outfile=self.ck12text_sent_corpus,
-                                sentence_sep='. ',
-                                action='write')
-
-
-        # Prepare Utah OER corpus
-        self.oer_corpus = '%s/UtahOER/oer_text.txt' % corpus_dir
-        if not os.path.exists(self.oer_corpus):
-            textr = TextReader(min_chars_per_line=1, min_words_per_section=10)
-            locdic = textr.read(dir='%s/UtahOER' % corpus_dir,
-                                outfile=self.oer_corpus,
-                                first_line_regexp='^.*Table of [cC]ontents*',
-                                action='write')
-
-
-
-        # Prepare Saylor+OpenStax corpus
-        self.saylor_corpus = '%s/Saylor/saylor_text.txt' % corpus_dir
-        if not os.path.exists(self.saylor_corpus):
-            textr = TextReader(min_chars_per_line=1, min_words_per_section=20)
-            locdic = textr.read(dir='%s/Saylor' % corpus_dir,
-                                outfile=self.saylor_corpus,
-                                first_line_regexp='^.*(CHAPTER|Chapter) 1.*',
-                                action='write')
-
-
-        # Prepare AI2 data corpus
-        # SimpleLineReader - read a corpus that is a simple text file, each line is treated as a separate section
-        # details can be found in the read_ai2_data method in Cardal_CorpusPreparation.py
-        # code that generate ai2_summary.txt:
-        # read_ai2_data(dirname, '/home/xihuan/Downloads/allenAI/Cardal/Kaggle_AllenAIscience/corpus/AI2_data/ai2_summary.txt')
-        # each line is a question, followed by ans, possibly followed by justification
-        self.ai2_corpus = '%s/AI2_data/ai2_corpus.txt' % corpus_dir
-        if not os.path.exists(self.ai2_corpus):
-            textr = SimpleLineReader(min_chars_per_line=1, min_words_per_section=2)
-            locdic = textr.read(filenames=['%s/AI2_data/ai2_summary.txt' % corpus_dir],
-                                outfile=self.ai2_corpus,
-                                action='write')
-
-
-        # Prepare StudyStack corpus
-        # go to the studystack.com, click the study cards, click export, which will output a file, each line is question and ans
-        self.sstack_corpus = '%s/StudyStack/studystack_corpus.txt' % corpus_dir
-        if not os.path.exists(self.sstack_corpus):
-            textr = SimpleLineReader(min_chars_per_line=1, min_words_per_section=2)
-            locdic = textr.read(filenames=['%s/StudyStack/sstack_data.text' % corpus_dir],
-                                outfile=self.sstack_corpus,
-                                action='write')
-
-
-        # Prepare StudyStack corpus #2 (small)
-        self.sstack_corpus2 = '%s/StudyStack/studystack_corpus2.txt' % corpus_dir
-        if not os.path.exists(self.sstack_corpus2):
-            textr = SimpleLineReader(min_chars_per_line=1, min_words_per_section=2)
-            locdic = textr.read(filenames=['%s/StudyStack/sstack_data2.text' % corpus_dir],
-                                outfile=self.sstack_corpus2,
-                                action='write')
-
-        # Prepare StudyStack corpus #3 (small+)
-        self.sstack_corpus3 = '%s/StudyStack/studystack_corpus3.txt' % corpus_dir
-        if not os.path.exists(self.sstack_corpus3):
-            textr = SimpleLineReader(min_chars_per_line=1, min_words_per_section=2)
-            locdic = textr.read(filenames=['%s/StudyStack/sstack_data3.text' % corpus_dir],
-                                outfile=self.sstack_corpus3,
-                                action='write')
-
-        # Prepare StudyStack corpus #4 (small-medium)
-        self.sstack_corpus4 = '%s/StudyStack/studystack_corpus4.txt' % corpus_dir
-        if not os.path.exists(self.sstack_corpus4):
-            textr = SimpleLineReader(min_chars_per_line=1, min_words_per_section=2)
-            locdic = textr.read(filenames=['%s/StudyStack/sstack_data4.text' % corpus_dir],
-                                outfile=self.sstack_corpus4,
-                                action='write')
-
-        # Prepare quizlet corpus
-        self.quizlet_corpus = '%s/quizlet/quizlet_corpus.txt' % corpus_dir
-        if not os.path.exists(self.quizlet_corpus):
-            textr = SimpleLineReader(min_chars_per_line=1, min_words_per_section=2)
-            locdic = textr.read(filenames=['%s/quizlet/quizlet_data.text' % corpus_dir],
-                                outfile=self.quizlet_corpus,
-                                action='write')
-
-
-        # Prepare SimpleWiki corpus #2
-        # this wiki_name = 'simplewiki' is actually wiki_type, which is an argument when intializing WikiReader object
-        """
-        this is the format, <PAGE> tag is the title of a single wiki page
-        <SECTION> tag under <PAGE> is the different sections belongs to this wiki page
-
-        <PAGE>alan turing __7
-        <SECTION> __1
-        alan turing alan mathison turing order british empire obe frs london 23 june 1912 wilmslow cheshire june 1954 english people english mathematician computer scientist born maida vale london
-        <SECTION>career __2
-        turing one people worked first computers first person think using computer things hard person created turing machine 1936 machine imagination imaginary included idea computer program turing interested artificial intelligence proposed turing test say machine could called intelligent computer could said think human talking could not tell machine during world war ii turing worked break germany german ciphers secret messages using cryptanalysis helped break codes enigma machine enigma machine after solved german codes 1945 1947 turing worked design ace computer ace automatic computing engine national physical laboratory presented paper 19 february 1946 paper first detailed design stored-program computer although possible build ace delays starting project late 1947 returned cambridge sabbatical year cambridge pilot ace built without ran first program 10 may 1950
-        <SECTION>private life __3
-        turing homosexual man 1952 admitted sex man england time homosexual acts illegal turing conviction convicted choose between going jail taking hormones lower sex drive decided take hormones after punishment became erectile dysfunction impotent also grew breasts may 2012 private member's bill put before house lords grant turing statutory pardon july 2013 government supported royal pardon granted 24 december 2013
-        <SECTION>death __4
-        1954 after suffering two years turing died cyanide poisoning cyanide came either apple poisoned cyanide water cyanide reason confusion police never tested apple cyanide treatment forced now believed wrong against medical ethics international laws human rights august 2009 petition asking british government apologise turing punishing homosexual started petition received thousands signatures prime minister united kingdom prime minister gordon brown acknowledged petition called turing's treatment appalling
-        <SECTION>other websites __6
-        jack copeland 2012 alan turing codebreaker saved millions lives bbc news technology
-        """
-        self.simplewiki_corpus2 = '%s/simplewiki/simplewiki_1.0000_0.0500_0_5_True_True_True_corpus.txt' % corpus_dir
-        if not os.path.exists(self.simplewiki_corpus2):
-            wkb = WikiCorpusBuilder(wiki_name='simplewiki', wiki_dir='%s/simplewiki'%corpus_dir, wiki_file='simplewiki-20151102-pages-articles.xml', debug_flag=False)
-            # create 2 files all_categories.pkl and parent_categories.pkl, if exist, will just load, they are stored in wkb.all_categories and wkb.parent_categories
+    def prepare_simplewiki_corpus(self, corpus_dir, train_b, valid_b):
+        # some explanations of the parameters, note that by modifying these numbers, you get different wiki corpus
+        # here for simplicity, I only show one possible combination
+        # common_words_min_frac = 1.0, meaning no words are treated as common words
+        # uncommon words_max_frac = 0,05 meaning there are 403716 uncommon words in this setting
+        # min_pos_words_in_page_name=0 meaning an eligible page must have 0 pos words(words that appears in train_b and valid_b), cuz we only want relevant wiki pages
+        # min_pos_words_in_section=5 meaning eligible section must have 5 pos words
+        # use_all_pages_match_pos_word=True
+        # use_all_pages_match_answer=True
+        # always_use_first_section=True
+        self.simplewiki_corpus = '%s/simplewiki/simplewiki_1.0000_0.0500_0_5_True_True_True_corpus.txt' % corpus_dir
+        if not os.path.exists(self.simplewiki_corpus):
+            wkb = WikiCorpusBuilder(wiki_name='simplewiki', wiki_dir='%s/simplewiki'%corpus_dir,
+                                    wiki_file='simplewiki-20151102-pages-articles.xml', debug_flag=False)
+            # Create 2 files all_categories.pkl and parent_categories.pkl, if exist, will just load,
+            # They are stored in wkb.all_categories and wkb.parent_categories
             # we scan the wiki file find all categories that has <title>Categories:xxx</title> and their parent Catetories
-            # details can be found in read_categories method in Cardal_WikiReader.py
+            # details can be found in read_categories method in WikiReader.py
             wkb.read_categories(reread=False)
-            # create a file pages_in_categories.pkl, which stores a vector that contains all page names for all categories
+            # Create 2 files 'use_categories.pkl' and 'pages_in_categories.pkl'
             # for all singlewiki corpus, target_categories = None, important_categories=['Earth', 'Cellular respiration', 'DNA', 'Units of length', 'History of science',
             #                                                           'Evolutionary biology', 'Nonmetals', 'Health', 'Charles Darwin']
             # important_categories are science-related categories, if not found in target_catefories, which is generated from above method, will give an alert
+            # it will all read_pages_in_categories in Cardal_WikiReader.py
             wkb.read_pages_in_categories(target_categories=None, max_cat_depth=9999,
                                          important_categories=['Earth', 'Cellular respiration', 'DNA', 'Units of length', 'History of science',
                                                                'Evolutionary biology', 'Nonmetals', 'Health', 'Charles Darwin'], reread=False)
@@ -291,169 +161,41 @@ class FeatureExtractor(object):
             # we finally save common_words.pkl, uncommon_words.pkl and stop_words.pkl to corpus dir
             wkb.find_common_words(wiki_common_words_min_frac=1.0, wiki_uncommon_words_max_frac=0.05, use_wiki_stop_words=False, reread=False)
             # note that wkb.create_corpus function returns a value, this is just the location of corpus name
-            # this will create the corpus file as well as exams_words.pkl(all words that appear in train_b and valid_b),positive_words.pkl(all words in exam that are also uncommon in wiki),
+            # this will create the corpus file as well as exams_words.pkl(all words that appear in train_b and valid_b),
+            # positive_words.pkl(all words in exam that are also uncommon in wiki),
             # and all_answers.pkl(this is a set, each element is a tuple of words within that answer)
-            self.simplewiki_corpus2 = wkb.create_corpus(train_b, valid_b, min_pos_words_in_page_name=0, min_pos_words_in_section=5,
+            self.simplewiki_corpus = wkb.create_corpus(train_b, valid_b, min_pos_words_in_page_name=0, min_pos_words_in_section=5,
                                                         only_first_section_per_page=False, use_all_pages_match_pos_word=True, use_all_pages_match_answer=True,
                                                         always_use_first_section=True, max_read_lines=9990000000, reread=False)
 
 
-
-        # Prepare SimpleWiki corpus #3
-        # I did not go through the details of making this corpus, it should be very similar to the last one, with minor changes on the parameters
-        self.simplewiki_corpus3 = '%s/simplewiki/simplewiki_1.0000_0.1000_0_3_True_True_False_corpus.txt' % corpus_dir
-        if not os.path.exists(self.simplewiki_corpus3):
-            wkb = WikiCorpusBuilder(wiki_name='simplewiki', wiki_dir='%s/simplewiki'%corpus_dir, wiki_file='simplewiki-20151102-pages-articles.xml', debug_flag=False)
-            wkb.read_categories(reread=False)
-            wkb.read_pages_in_categories(target_categories=None, max_cat_depth=9999,
-                                         important_categories=['Earth', 'Cellular respiration', 'DNA', 'Units of length', 'History of science',
-                                                               'Evolutionary biology', 'Nonmetals', 'Health', 'Charles Darwin'], reread=False)
-            wkb.find_common_words(wiki_common_words_min_frac=1.0, wiki_uncommon_words_max_frac=0.1, use_wiki_stop_words=False, reread=False)
-            self.simplewiki_corpus3 = wkb.create_corpus(train_b, valid_b, min_pos_words_in_page_name=0, min_pos_words_in_section=3,
-                                                        only_first_section_per_page=False, use_all_pages_match_pos_word=True, use_all_pages_match_answer=True,
-                                                        always_use_first_section=False, max_read_lines=9990000000, reread=False)
-
-        # Prepare SimpleWiki corpus - page names
-        self.simplewiki_corpus_pn = '%s/simplewiki/simplewiki_1.0000_0.0100_0_3_True_True_False_pn46669_corpus.txt' % corpus_dir
-        if not os.path.exists(self.simplewiki_corpus_pn):
-            wkb = WikiCorpusBuilder(wiki_name='simplewiki', wiki_dir='%s/simplewiki'%corpus_dir, wiki_file='simplewiki-20151102-pages-articles.xml', debug_flag=False)
-            wkb.read_categories(reread=False)
-            wkb.read_pages_in_categories(target_categories=None, max_cat_depth=9999,
-                                         important_categories=['Earth', 'Cellular respiration', 'DNA', 'Units of length', 'History of science',
-                                                               'Evolutionary biology', 'Nonmetals', 'Health', 'Charles Darwin'], reread=False)
-            wkb.find_common_words(wiki_common_words_min_frac=1.0, wiki_uncommon_words_max_frac=0.01, use_wiki_stop_words=False, reread=False)
-            self.simplewiki_corpus_pn = wkb.create_corpus(train_b=train_b, valid_b=valid_b, min_pos_words_in_page_name=0, min_pos_words_in_section=3,
-                                                          only_first_section_per_page=False, use_all_pages_match_pos_word=True, use_all_pages_match_answer=True,
-                                                          pages_to_use=self.word_sets,
-                                                          always_use_first_section=False, max_read_lines=9990000000, reread=False)
-
-
-
-
-        # Prepare wikibooks corpus
-        self.wikibooks_corpus = '%s/wikibooks/wikibooks_1.0000_0.0200_0_10_True_True_False_corpus.txt' % corpus_dir
-        if not os.path.exists(self.wikibooks_corpus):
-            wkb = WikiCorpusBuilder(wiki_name='wikibooks', wiki_dir='%s/wikibooks'%corpus_dir, wiki_file='enwikibooks-20151102-pages-articles.xml', debug_flag=False)
-            wkb.read_categories(reread=False)
-            wkb.read_pages_in_categories(target_categories=None, max_cat_depth=9999, important_categories=[], reread=False)
-            wkb.find_common_words(wiki_common_words_min_frac=1.0, wiki_uncommon_words_max_frac=0.02, use_wiki_stop_words=False, reread=False)
-            self.wikibooks_corpus = wkb.create_corpus(train_b, valid_b, min_pos_words_in_page_name=0, min_pos_words_in_section=10,
-                                                      only_first_section_per_page=False,
-                                                      use_all_pages_match_pos_word=True, use_all_pages_match_answer=True,
-                                                      always_use_first_section=False, max_read_lines=99900000000, reread=False)
-
-
-
-        wiki_target_categories = set([#'Nature','Medicine',
-                                      'Biology','Chemistry','Physics','Astronomy','Earth',
-                                      'Genetics', 'Geology', 'Health', 'Science', 'Anatomy', 'Physiology', 'Solar System',
-                                      'Water', 'Meteorology',
-                                      'Water in the United States', 'Agriculture in the United States', 'Environment of the United States',
-                                      #'Water', 'Physical chemistry', 'Physical phenomena', 'Human homeostasis', 'Body fluids'
-                                      ])
-        wiki_important_categories = []
-
-
-        # Prepare wiki corpus #3 - only 1st section per page
-        self.wiki_corpus3 = '%s/wiki/wiki_1.0000_0.0200_0_5_True_True_False_corpus.txt' % corpus_dir
-        if not os.path.exists(self.wiki_corpus3):
-            wkb = WikiCorpusBuilder(wiki_name='wiki', wiki_dir='%s/wiki'%corpus_dir, wiki_file='enwiki-20160113-pages-articles.xml', debug_flag=False)
-            wkb.read_categories(reread=False)
-            wkb.read_pages_in_categories(target_categories=wiki_target_categories, max_cat_depth=3, important_categories=wiki_important_categories, reread=False)
-            wkb.find_common_words(wiki_common_words_min_frac=1.0, wiki_uncommon_words_max_frac=0.02, use_wiki_stop_words=False, max_read_lines=50000000, reread=False)
-            self.wiki_corpus3 = wkb.create_corpus(train_b, valid_b, min_pos_words_in_page_name=0, min_pos_words_in_section=5,
-                                                  only_first_section_per_page=True,
-                                                  use_all_pages_match_pos_word=True, use_all_pages_match_answer=True,
-                                                  always_use_first_section=False, max_read_lines=99900000000, reread=False)
-
-
-
-        # Prepare wiki corpus - page names
-        self.wiki_corpus_pn = '%s/wiki/wiki_0.5000_0.1000_0_5_True_True_False_pn46669_corpus.txt' % corpus_dir
-        if not os.path.exists(self.wiki_corpus_pn):
-            wkb = WikiCorpusBuilder(wiki_name='wiki', wiki_dir='%s/wiki'%corpus_dir, wiki_file='enwiki-20160113-pages-articles.xml', debug_flag=False)
-            wkb.read_categories(reread=False)
-            wkb.read_pages_in_categories(target_categories=None, max_cat_depth=9999, important_categories=wiki_important_categories, reread=False)
-            wkb.find_common_words(wiki_common_words_min_frac=0.5, wiki_uncommon_words_max_frac=0.1, use_wiki_stop_words=False, max_read_lines=50000000, reread=False)
-            self.wiki_corpus_pn = wkb.create_corpus(train_b, valid_b, min_pos_words_in_page_name=0, min_pos_words_in_section=5,
-                                                    only_first_section_per_page=False,
-                                                    use_all_pages_match_pos_word=True, use_all_pages_match_answer=True,
-                                                    pages_to_use=self.word_sets,
-                                                    always_use_first_section=False, max_read_lines=99900000000, reread=False)
-
-
-
-        wkb = None
-        locdic = None
-        gc.collect()
-
-        # Prepare Lucene indexes
-        # this part has to use jython
+    def prepare_lucene_indexes(self, corpus_dir):
         self.lucene_dir1, self.lucene_parser1, self.lucene_corpus1 = None, None, None
         self.lucene_dir2, self.lucene_parser2, self.lucene_corpus2 = None, None, None
         self.lucene_dir3, self.lucene_parser3, self.lucene_corpus3 = None, None, None
-        self.lucene_dir4, self.lucene_parser4, self.lucene_corpus4 = None, None, None
-        self.lucene_dir5, self.lucene_parser5, self.lucene_corpus5 = None, None, None
-        self.lucene_dir6, self.lucene_parser6, self.lucene_corpus6 = None, None, None
-        self.lucene_dir7, self.lucene_parser7, self.lucene_corpus7 = None, None, None
-        # This condition is here since I don't have PyLucene on my Windows system
-        if (len(sys.argv) >= 3) and (sys.argv[1] == 'prep') and (int(sys.argv[2]) >= 21):
-            self.lucene_dir1 = '%s/lucene_idx1' % corpus_dir
-            self.lucene_parser1 = SimpleWordParser(word_func=EnglishStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
-            self.lucene_corpus1 = LuceneCorpus(index_dir=self.lucene_dir1, filenames=[self.sstack_corpus, self.quizlet_corpus], parser=self.lucene_parser1)
-            # note that for each section(not each page), we add the whole section to Lucene index, we store the text and makes it searchable
-            # the section text are parsed using lucene_parser1, which in this case use EnglishStemmer to stem words
-            # we have made our corpus consistent so that we can easily search the section we want to index and easily split the text.
-            if not os.path.exists(self.lucene_dir1):
-                 self.lucene_corpus1.prp_index()
 
-            self.lucene_dir2 = '%s/lucene_idx2' % corpus_dir
-            self.lucene_parser2 = SimpleWordParser(word_func=LancasterStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
-            self.lucene_corpus2 = LuceneCorpus(index_dir=self.lucene_dir2, filenames=[self.sstack_corpus3, self.quizlet_corpus, self.ck12text_corpus,
-                                                                                      self.wiki_corpus_pn, self.simplewiki_corpus_pn], parser=self.lucene_parser2)
-            if not os.path.exists(self.lucene_dir2):
-                 self.lucene_corpus2.prp_index()
+        # Lucene Index 1: ck12html
+        self.lucene_dir1 = '%s/lucene_idx1' % corpus_dir
+        self.lucene_parser1 = SimpleWordParser(word_func=EnglishStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
+        self.lucene_corpus1 = LuceneCorpus(index_dir=self.lucene_dir1, filenames=[self.ck12html_corpus], parser=self.lucene_parser1)
+        if not os.path.exists(self.lucene_dir1):
+             self.lucene_corpus1.prp_index()
 
-            self.lucene_dir3 = '%s/lucene_idx3' % corpus_dir
-            self.lucene_parser3 = SimpleWordParser(word_func=PorterStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
-            self.lucene_corpus3 = LuceneCorpus(index_dir=self.lucene_dir3, filenames=[self.sstack_corpus4, self.quizlet_corpus, self.oer_corpus, self.saylor_corpus,
-                                                                                      self.ck12html_para_corpus, self.ai2_corpus],
-                                               parser=self.lucene_parser3, similarity=BM25Similarity())
-            # note that for the first time we have similarities, so we do not use the default similarity, which is normalized TF-IDF
-            # instead we use BM25 Similarity
-            if not os.path.exists(self.lucene_dir3):
-                 self.lucene_corpus3.prp_index()
+        # Lucene Index 2: ck12text
+        self.lucene_dir2 = '%s/lucene_idx2' % corpus_dir
+        self.lucene_parser2 = SimpleWordParser(word_func=LancasterStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
+        self.lucene_corpus2 = LuceneCorpus(index_dir=self.lucene_dir2, filenames=[self.ck12text_corpus], parser=self.lucene_parser2)
+        if not os.path.exists(self.lucene_dir2):
+             self.lucene_corpus2.prp_index()
 
-            self.lucene_dir4 = '%s/lucene_idx4' % corpus_dir
-            self.lucene_parser4 = SimpleWordParser(word_func=EnglishStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
-            self.lucene_corpus4 = LuceneCorpus(index_dir=self.lucene_dir4, filenames=[self.sstack_corpus, self.quizlet_corpus, self.ck12html_corpus],
-                                               parser=self.lucene_parser4, similarity=BM25Similarity())
-            if not os.path.exists(self.lucene_dir4):
-                 self.lucene_corpus4.prp_index()
+        # Lucene Index 3: simplewiki
+        self.lucene_dir3 = '%s/lucene_idx3' % corpus_dir
+        self.lucene_parser3 = SimpleWordParser(word_func=PorterStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
+        self.lucene_corpus3 = LuceneCorpus(index_dir=self.lucene_dir3, filenames=[self.simplewiki_corpus],
+                                           parser=self.lucene_parser3, similarity=BM25Similarity())
+        if not os.path.exists(self.lucene_dir3):
+             self.lucene_corpus3.prp_index()
 
-            self.lucene_dir5 = '%s/lucene_idx5' % corpus_dir
-            self.lucene_parser5 = SimpleWordParser(word_func=LancasterStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
-            self.lucene_corpus5 = LuceneCorpus(index_dir=self.lucene_dir5, filenames=[self.wiki_corpus3, self.simplewiki_corpus3],
-                                               parser=self.lucene_parser5, similarity=None)
-            if not os.path.exists(self.lucene_dir5):
-                 self.lucene_corpus5.prp_index()
-
-            self.lucene_dir6 = '%s/lucene_idx6' % corpus_dir
-            self.lucene_parser6 = SimpleWordParser(word_func=EnglishStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
-            self.lucene_corpus6 = LuceneCorpus(index_dir=self.lucene_dir6, filenames=[self.ck12text_corpus, self.saylor_corpus, self.oer_corpus, self.ai2_corpus],
-                                               parser=self.lucene_parser6, similarity=BM25Similarity())
-            if not os.path.exists(self.lucene_dir6):
-                 self.lucene_corpus6.prp_index()
-
-            self.lucene_dir7 = '%s/lucene_idx7' % corpus_dir
-            self.lucene_parser7 = SimpleWordParser(word_func=PorterStemmer().stem, split_words_regexp='[\-\+\*\/\,\;\:\(\)]', min_word_length=1)
-            self.lucene_corpus7 = LuceneCorpus(index_dir=self.lucene_dir7, filenames=[self.sstack_corpus2, self.wiki_corpus_pn, self.simplewiki_corpus_pn,
-                                                                                      self.ck12html_para_corpus, self.oer_corpus],
-                                               parser=self.lucene_parser7, similarity=None)
-            if not os.path.exists(self.lucene_dir7):
-                 self.lucene_corpus7.prp_index()
-
-        print '-> Finished preparing corpuses'
 
     ALL_FEATURE_TYPES = {# "BASIC" features extracted from the questions and answers, w/o external corpus:
                          'BASIC': 0,

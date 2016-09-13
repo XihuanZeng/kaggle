@@ -2,6 +2,7 @@ import sys
 import json
 import pandas as pd
 import numpy as np
+import time
 import os
 from IO import read_input_file, load_from_pkl, save_to_pkl
 from DataPreparation import sub_complex_answers, prp_binary_dataf
@@ -51,12 +52,24 @@ if data_pkl_file is None:
     # prepare word set, which is to derive all the unique 1-gram and 2-gram from train, valid and test
     fext.prepare_word_sets(corpus_dir = corpus_dir, train_b = train_b, valid_b = None, test_b = None)
 
-    # prepare ck12html corpus: this function will go into OEBPS dir, find all the x.html file where x is a number
+    # prepare ck12html corpus: this function will go into CK12/OEBPS dir, find all x.html file where x is a number
     # extract all the text while ignore sections such as 'explore more', 'review', 'practice', 'references'
     fext.prepare_ck12html_corpus(corpus_dir = corpus_dir)
 
-    #
+    # prepare ck12text corpus: this function will go into CK12 dir, find all .text file, which are 6 textbooks
+    # extract relevant text from all Chapters of each book
     fext.prepare_ck12text_corpus(corpus_dir = corpus_dir)
+
+    # prepare simplewiki corpus: this function will go into simplewiki dir, find the simplewiki-20151102-pages-articles.xml
+    # extract text from all categories found if the page contains at least some uncommon words from train_b and test_b
+    fext.prepare_simplewiki_corpus(corpus_dir, train_b, valid_b)
+
+    # prepare Lucene indexing: this will create Lucene indexing in lucene_idx[1-3] for the corpus created by previous functions
+    fext.prepare_lucene_indexes(corpus_dir = corpus_dir)
+
+
+
+
 
 
 

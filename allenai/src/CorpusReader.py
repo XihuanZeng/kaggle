@@ -153,7 +153,6 @@ class CorpusReader(object):
             print 'Building locdic from file #%d: %s' % (ifname, fname)
             with open(fname,'rt') as infile:
                 for text in infile:
-    #                 print '%s' % text
                     if len(text)==0:
                         print 'Reached EOF'
                         break # EOF
@@ -175,5 +174,4 @@ class CorpusReader(object):
                     num_lines += 1
                     if num_lines % 100000 == 0:
                         print ' read %d lines: %d pages, %d sections -> %d words' % (num_lines, num_pages, num_sections, len(locdic.word_ids))
-    #                     skjdkjjkkj()
         return locdic

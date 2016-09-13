@@ -29,7 +29,7 @@ class TextReader(CorpusReader):
         page_name, section_name, section_in_page = None, None, 0
         page_name_words, section_words = [], []
         start_time = time.time()
-
+        # this includes all the .text files which are converted from pdf books
         filenames = ['%s/%s'%(dir,fname) for fname in os.listdir(dir) if fname.endswith('.text')]
         assert len(filenames)>0
         for ifname,fname in enumerate(filenames):
@@ -45,12 +45,16 @@ class TextReader(CorpusReader):
                 found_first_line = False
                 text = ''
                 # will search for the first_line_re in the file, e.g 'C HAPTER' for CK12-textbooks
-                # once we find first line, it will be True forever
-                # given that we find first line, if we find a line that contains section_end_re, that is multiple spaces, we write lines we have seen so far to new section
-                # it turns out that a paragraph could be a section and there are more than 5000 sections for 1 page(file)
-                # to actually add a section, we also use _add_section method in CorpusReader.py to check if it is a valid section. For instance, we ignore it if section has too few words or if it contains figures and formulas
+                # given that we find first line, if we find a line that contains section_end_re, that is multiple spaces,
+                # we write lines we have seen so far to new section
+                # it turns out that if we set each paragraph a section, there are more than 5000 sections for 1 page(file)
+                # to actually add a section, we also use _add_section method in CorpusReader.py to check if it is a valid section.
+                # For instance, we ignore it if section has too few words or if it merely contains figures and formulas
                 for line in myfile:
                     line = line.strip()
+                    # note that the online pdf to text converter that I used will produce some of the title caption as
+                    # 'V IRAL S EXUALLY T RANSMITTED I NFECTIONS', where the space between chars should be substituted
+                    line = re.sub('(?<=[A-Z]{1})(\s)(?=[A-Z]{2,})', '', line)
                     if found_first_line:
                         if re.match(section_end_re, line) is not None:
                             # Add previous section
@@ -63,7 +67,6 @@ class TextReader(CorpusReader):
                             text += ' ' + line
                     else:
                         if re.match(first_line_re, line) is not None:
-#                             print '===== found first line ====='
                             found_first_line = True
             assert found_first_line, 'Could not find first line in file %s' % fname
             # Add last section
