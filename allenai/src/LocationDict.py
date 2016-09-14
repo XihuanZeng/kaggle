@@ -44,7 +44,6 @@ class LocationDictionary(object):
         self.total_count = base_locdic.total_count
 
     def add_words(self, doc_name, doc_name_words, words):
-#         print 'Adding words: %s' % ' ; '.join(words)
         if self.doc_ids.has_key(doc_name):
             assert self.doc_name_weight == 0
             assert 'Should not be here?!...'

@@ -32,3 +32,11 @@ def load_from_pkl(filename):
         data = cPickle.load(f)
     return data
 
+def create_dirs(dirs):
+    '''
+    Make sure the given directories exist. If not, create them
+    '''
+    for dir in dirs:
+        if not os.path.exists(dir):
+            print 'Creating directory %s' % dir
+            os.mkdir(dir)

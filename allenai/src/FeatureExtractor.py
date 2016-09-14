@@ -13,7 +13,8 @@ from LuceneCorpus import LuceneCorpus
 from nltk.stem.snowball import EnglishStemmer
 from nltk.stem.lancaster import LancasterStemmer
 from nltk.stem.porter import PorterStemmer
-from IO import load_from_pkl, save_to_pkl
+from IO import load_from_pkl, save_to_pkl, create_dirs
+from AnswerFunc import *
 
 
 import lucene
@@ -199,7 +200,15 @@ class FeatureExtractor(object):
 
     ALL_FEATURE_TYPES = {# "BASIC" features extracted from the questions and answers, w/o external corpus:
                          'BASIC': 0,
-                         # Features computed using my search functions:
+                         # Statistical corpus features:
+                         'ckhtml': 1, 'cktext': 2, 'simplewiki': 3,
+                         # Features computed using PyLucene:
+                         'lucene.1': 4, 'lucene.2': 5, 'lucene.3': 6
+                         }
+    """
+    ALL_FEATURE_TYPES = {# "BASIC" features extracted from the questions and answers, w/o external corpus:
+                         'BASIC': 0,
+                         # Statistical corpus features:
                          'ck-hp_saylor.triplets.1': 1, 'ck-hp_saylor_oer.triplets.1': 2,  'qz_ck-ts.1': 3,
                          'st2_qz_oer_ck-hp.1': 4, 'st2_qz_oer_ck-t.triplets.1': 5,
                          'st2_qz_wk-pn_oer_ck-h.pairs.1': 6, 'st_qz.1': 7, 'st_qz.pairs2.1': 8, 'st_qz_ai.1': 9,
@@ -209,6 +218,38 @@ class FeatureExtractor(object):
                          # Features computed using PyLucene:
                          'lucene.1': 21, 'lucene.2': 22, 'lucene.3': 23, 'lucene.4': 24, 'lucene.5': 25, 'lucene.6': 26, 'lucene.7': 27,
                          }
+    """
+
+
+
+    def prepare_basic_features(self, dataf_q, dataf_b, train_df, cache_dir):
+        self.cache_dir = '%s/%s' % (self.base_dir, cache_dir)
+        if not os.path.exists(self.cache_dir):
+            create_dirs([self.cache_dir])
+            stemmer1 = PorterStemmer()
+            stem1 = stemmer1.stem
+            check_same_question = not set(dataf_b['ID']).isdisjoint(train_df['ID'])
+            stemmed_parser  = SimpleWordParser(word_func=stem1, ignore_special_words=True , min_word_length=1)
+
+            func_name = 'ans_in_qst_stem'
+            self.add_answer_func(dataf_b, func=AnswersInQuestionFunc(parser=stemmed_parser), name=func_name)
+
+            func_name = 'ans_in_ans_stem'
+            self.add_answer_func(dataf_b, func=AnswersInAnswersFunc(parser=stemmed_parser), name=func_name)
+
+            func_name = 'ans_words_stem_count'
+            self.add_answer_func(dataf_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='count', parser=stemmed_parser, single_words=True), name=func_name)
+
+            func_name = 'ans_length_ratio'
+            self.add_answer_func(dataf_b, func=AnswersLengthFunc(log_flag=False), name=func_name)
+
+            func_name = 'ans_num_words'
+            self.add_answer_func(dataf_b, func=AnswersNumWordsFunc(), name=func_name)
+
+
+    def prepare_lucene_features(self, dataf_q, dataf_b, train_df, cache_dir):
+        pass
+
 
     def prepare_features(self, dataf_q, dataf_b, train_df, aux_b, cache_dir, ftypes=None):
         '''
@@ -234,7 +275,7 @@ class FeatureExtractor(object):
 
         tag_weights1 = {'NN':1.5,'NNP':1.5,'NNPS':1.5,'NNS':1.5, 'VB':1.3,'VBD':1.3,'VBG':1.3,'VBN':1.3,'VBP':1.3,'VBZ':1.3,
                         'JJ':1.0,'JJR':1.0,'JJS':1.0, 'RB':1.0,'RBR':1.0,'RBS':1.0,'RP':1.0}
-        tag_weight_func1 = lambda tag: tag_weights1.get(tag, 0.8)
+        tag_weight_func1 = lambda tag: tag_weights1.get(tag, 0.8)   # 0.8 is default if key not exist
 
         tag_weights2 = {'NN':2.0,'NNP':2.0,'NNPS':2.0,'NNS':2.0, 'VB':1.5,'VBD':1.5,'VBG':1.5,'VBN':1.5,'VBP':1.5,'VBZ':1.5,
                         'JJ':1.0,'JJR':1.0,'JJS':1.0, 'RB':0.8,'RBR':0.8,'RBS':0.8,'RP':0.8}
@@ -436,7 +477,7 @@ class FeatureExtractor(object):
         check_same_question = not set(train_b['ID']).isdisjoint(train_df['ID'])
 
         for fn,params in sorted(ds_funcs.iteritems()):
-            if params['skip']: continue
+            if params['skip']: continue # always False
             if (ftypes is not None) and (FeatureExtractor.ALL_FEATURE_TYPES[fn] not in ftypes): continue
             if params.has_key('zscore') or params.has_key('lucene'):
                 func_name = fn
@@ -450,8 +491,7 @@ class FeatureExtractor(object):
             else:
                 locdic = None
             norm_scores = params['norm_scores'] if params.has_key('norm_scores') else self.norm_scores_default
-            self.recalc = params['recalc']
-            #print 'recalc = %s' % self.recalc
+            self.recalc = params['recalc']  # always False
             if params.has_key('train'):
                 assert params['train']
                 self.add_answer_func(train_b, aux_b,
@@ -461,15 +501,7 @@ class FeatureExtractor(object):
                                                                        score=params['score'], score_params=params['score_params'], norm_scores=norm_scores,
                                                                        prob_type=params['prob_type'], tf_log_flag=params['tf_log_flag']),
                                      name=func_name)
-            elif params.has_key('train0'):
-                assert params['train0'] and (locdic is None)
-                self.add_answer_func(train_b, aux_b,
-                                     func=AnswersTrainDoubleSearchFunc(train_df[train_df['correct']==0], check_same_question=check_same_question,
-                                                                       parser=params['parser'],
-                                                                       num_words_qst=params['num_words_qst'], num_words_ans=params['num_words_ans'],
-                                                                       score=params['score'], score_params=params['score_params'], norm_scores=norm_scores,
-                                                                       prob_type=params['prob_type'], tf_log_flag=params['tf_log_flag']),
-                                     name=func_name)
+
             elif params.has_key('apairs'):
                 self.add_answer_func(train_b, aux_b,
                                      func=AnswersPairsDoubleSearchFunc(locdic=locdic, parser=params['parser'],
@@ -608,7 +640,7 @@ class FeatureExtractor(object):
                 exists = exists and os.path.exists(self._cache_filename(n))
         return exists
 
-    def add_answer_func(self, train_b, aux_b, func, name, question_ids=None):
+    def add_answer_func(self, train_b, func, name, question_ids=None):
         '''
         Run a score function on each set of question and answers
         '''
@@ -620,50 +652,16 @@ class FeatureExtractor(object):
                     train_b[n] = self._read_from_cache(n)
             return
 
-        if aux_b is None:
-            aux_ids = set()
-        else:
-            aux_ids = set(aux_b['ID'])
-            print 'Given %d aux IDs' % len(aux_ids)
         groups = train_b.groupby('ID').groups
         for i,(idx,inds) in enumerate(groups.iteritems()):
             assert len(set(train_b.irow(inds)['question']))==1
             if (question_ids is not None) and (idx not in question_ids): continue
-            question = train_b.irow(inds[0])['question']
-            is_dummy = train_b.irow(inds[0])['is_dummy']
-            answers = np.array(train_b.irow(inds)['answer'])
+            question = train_b.iloc[inds[0]]['question']
+            answers = np.array(train_b.iloc[inds]['answer'])
             if 'correct' in train_b.columns:
-                print '\n-----> #%d : correct = %s' % (i, ', '.join(['%d'%c for c in np.array(train_b.irow(inds)['correct'])]))
+                print '\n-----> #%d : correct = %s' % (i, ', '.join(['%d'%c for c in np.array(train_b.iloc[inds]['correct'])]))
                 sys.stdout.flush()
-    #         print 'applying func to: %s' % str(np.array(train_b.irow(inds)['answer']))
-
-            # Check if there's an identical question in aux_b
-            if idx in aux_ids:
-                same_qst = aux_b[aux_b['ID']==idx]
-                assert question == np.unique(same_qst['question'])[0]
-                assert set(answers) == set(same_qst['answer'])
-                assert np.all(answers == np.array(same_qst['answer']))
-                print 'Found same question in aux (ID %s):\n%s' % (idx, str(same_qst))
-                vals = []
-                for ai,ans in enumerate(answers): # for ans in answers:
-                    if np.isscalar(name):
-                        #vals.append(float(same_qst[same_qst['answer']==ans][name]))
-                        vals.append(float(same_qst.irow(ai)[name]))
-                    else:
-                        #vals.append(np.array(same_qst[same_qst['answer']==ans][name]).flatten())
-						vals.append(np.array(same_qst.irow(ai)[name]).flatten())
-                print ' -> vals: %s' % vals
-            else:
-                # Check if it's a dummy question
-                if is_dummy > 1:
-                    # No need to waste time on dummy questions...
-                    if np.isscalar(name):
-                        vals = [-1] * len(inds)
-                    else:
-                        vals = [np.ones(len(name)) * (-1)] * len(inds)
-                else:
-                    # Compute func
-                    vals = func(question, answers)
+            vals = func(question, answers)
             if question_ids is not None:
                 print 'vals = %s' % str(vals)
             for val,ind in zip(vals, inds):

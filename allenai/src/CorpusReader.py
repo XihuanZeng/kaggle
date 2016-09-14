@@ -98,6 +98,7 @@ class CorpusReader(object):
     def _add_section(self, page_name, page_name_words, section_name, section_name_words, section_number, section_words):
         '''
         Returns 1 if the section was added, 0 otherwise
+        Need to check if this is a valid section
         '''
         self.num_sections += 1
         if ((not self.always_use_first_section) or (section_number > 1)) and (len(section_words) < self.min_words_per_section):
@@ -165,10 +166,7 @@ class CorpusReader(object):
                         num_sections += 1
                     else:
                         assert (page_name is not None) and (section_name is not None)
-                        #section_words = text.split(' ')
-                        section_words = parser.parse(text, calc_weights=False) #True)
-                        if False:
-                            print 'Adding words: %s (weights: %s)' % (section_words, weights)
+                        section_words = parser.parse(text, calc_weights=False)
                         locdic.add_words('F%d/%s/%s' % (ifname, page_name, section_name), CorpusReader.words_from_part_name(page_name) + CorpusReader.words_from_part_name(section_name),
                                          section_words)
                     num_lines += 1
