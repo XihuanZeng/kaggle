@@ -27,10 +27,10 @@
       <file leaf-file-name="main.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.77452666">
-              <caret line="93" column="4" selection-start-line="93" selection-start-column="4" selection-end-line="93" selection-end-column="4" />
+            <state vertical-scroll-proportion="0.32874355">
+              <caret line="79" column="24" selection-start-line="79" selection-start-column="24" selection-end-line="79" selection-end-column="24" />
               <folding>
-                <element signature="e#0#10#0" expanded="true" />
+                <element signature="e#0#9#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -39,46 +39,10 @@
       <file leaf-file-name="DataPreparation.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/DataPreparation.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-16.47541">
+            <state vertical-scroll-proportion="-3.9344263">
               <caret line="67" column="118" selection-start-line="67" selection-start-column="118" selection-end-line="67" selection-end-column="118" />
               <folding>
                 <element signature="e#0#19#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="FeatureExtractor.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/FeatureExtractor.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-18.622952">
-              <caret line="521" column="90" selection-start-line="519" selection-start-column="37" selection-end-line="521" selection-end-column="90" />
-              <folding>
-                <element signature="e#0#12#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="Draft.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/Draft.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-3.3770492">
-              <caret line="17" column="0" selection-start-line="17" selection-start-column="0" selection-end-line="28" selection-end-column="131" />
-              <folding>
-                <element signature="e#2#39#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="AnswerFunc.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/AnswerFunc.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-3.1311476">
-              <caret line="585" column="69" selection-start-line="585" selection-start-column="69" selection-end-line="585" selection-end-column="69" />
-              <folding>
-                <element signature="e#0#11#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -96,23 +60,35 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="CorpusReader.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/CorpusReader.py">
+      <file leaf-file-name="FeatureExtractor.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/FeatureExtractor.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.4918033">
-              <caret line="128" column="35" selection-start-line="128" selection-start-column="29" selection-end-line="128" selection-end-column="35" />
+            <state vertical-scroll-proportion="26.131147">
+              <caret line="199" column="0" selection-start-line="199" selection-start-column="0" selection-end-line="199" selection-end-column="0" />
               <folding>
-                <element signature="e#0#18#0" expanded="true" />
+                <element signature="e#0#12#0" expanded="true" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="LocationDict.py" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/LocationDict.py">
+      <file leaf-file-name="Draft.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/Draft.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-3.1147542">
-              <caret line="48" column="44" selection-start-line="48" selection-start-column="44" selection-end-line="48" selection-end-column="44" />
+            <state vertical-scroll-proportion="0.0">
+              <caret line="156" column="89" selection-start-line="156" selection-start-column="89" selection-end-line="156" selection-end-column="89" />
+              <folding>
+                <element signature="e#2#39#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="LuceneCorpus.py" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/LuceneCorpus.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state vertical-scroll-proportion="-16.721312">
+              <caret line="101" column="149" selection-start-line="101" selection-start-column="149" selection-end-line="101" selection-end-column="149" />
               <folding>
                 <element signature="e#0#18#0" expanded="true" />
               </folding>
@@ -141,14 +117,14 @@
         <option value="$PROJECT_DIR$/TextReader.py" />
         <option value="$PROJECT_DIR$/WikiCorpusBuilder.py" />
         <option value="$PROJECT_DIR$/WikiReader.py" />
-        <option value="$PROJECT_DIR$/LuceneCorpus.py" />
         <option value="$PROJECT_DIR$/IO.py" />
         <option value="$PROJECT_DIR$/CorpusReader.py" />
         <option value="$PROJECT_DIR$/LocationDict.py" />
         <option value="$PROJECT_DIR$/AnswerFunc.py" />
-        <option value="$PROJECT_DIR$/FeatureExtractor.py" />
+        <option value="$PROJECT_DIR$/LuceneCorpus.py" />
         <option value="$PROJECT_DIR$/Draft.py" />
         <option value="$PROJECT_DIR$/main.py" />
+        <option value="$PROJECT_DIR$/FeatureExtractor.py" />
       </list>
     </option>
   </component>
@@ -445,16 +421,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/LuceneCorpus.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-3.6885245">
-          <caret line="15" column="35" selection-start-line="15" selection-start-column="35" selection-end-line="15" selection-end-column="35" />
-          <folding>
-            <element signature="e#0#18#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/CorpusReader.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.4918033">
@@ -475,6 +441,26 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/AnswerFunc.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.32874355">
+          <caret line="585" column="69" selection-start-line="585" selection-start-column="69" selection-end-line="585" selection-end-column="69" />
+          <folding>
+            <element signature="e#0#11#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/LuceneCorpus.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="-16.721312">
+          <caret line="101" column="149" selection-start-line="101" selection-start-column="149" selection-end-line="101" selection-end-column="149" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/IO.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="0.0">
@@ -485,20 +471,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/AnswerFunc.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-3.1311476">
-          <caret line="585" column="69" selection-start-line="585" selection-start-column="69" selection-end-line="585" selection-end-column="69" />
-          <folding>
-            <element signature="e#0#11#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/Draft.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-3.3770492">
-          <caret line="17" column="0" selection-start-line="17" selection-start-column="0" selection-end-line="28" selection-end-column="131" />
+        <state vertical-scroll-proportion="0.0">
+          <caret line="156" column="89" selection-start-line="156" selection-start-column="89" selection-end-line="156" selection-end-column="89" />
           <folding>
             <element signature="e#2#39#0" expanded="true" />
           </folding>
@@ -507,8 +483,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/FeatureExtractor.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-18.622952">
-          <caret line="521" column="90" selection-start-line="519" selection-start-column="37" selection-end-line="521" selection-end-column="90" />
+        <state vertical-scroll-proportion="26.131147">
+          <caret line="199" column="0" selection-start-line="199" selection-start-column="0" selection-end-line="199" selection-end-column="0" />
           <folding>
             <element signature="e#0#12#0" expanded="true" />
           </folding>
@@ -517,7 +493,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/DataPreparation.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-16.47541">
+        <state vertical-scroll-proportion="-3.9344263">
           <caret line="67" column="118" selection-start-line="67" selection-start-column="118" selection-end-line="67" selection-end-column="118" />
           <folding>
             <element signature="e#0#19#0" expanded="true" />
@@ -527,10 +503,10 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.77452666">
-          <caret line="93" column="4" selection-start-line="93" selection-start-column="4" selection-end-line="93" selection-end-column="4" />
+        <state vertical-scroll-proportion="0.32874355">
+          <caret line="79" column="24" selection-start-line="79" selection-start-column="24" selection-end-line="79" selection-end-column="24" />
           <folding>
-            <element signature="e#0#10#0" expanded="true" />
+            <element signature="e#0#9#0" expanded="true" />
           </folding>
         </state>
       </provider>

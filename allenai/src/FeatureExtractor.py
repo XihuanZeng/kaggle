@@ -47,7 +47,7 @@ def add_qa_features(train):
     train['q____']       = np.array([('___' in qst) for qst in train['question']])
     not_words_weights = {'NOT':1, 'EXCEPT':1, 'LEAST':1}    # note the 'not' words can have unequal weights
     train['q_not']       = np.array([np.max([not_words_weights.get(w,0) for w in qst.split(' ')]) for qst in train['question']])
-    train['q_num_words'] = np.array([parser.parse(qst) for qst in train['question']])
+    train['q_num_words'] = np.array([len(parser.parse(qst)) for qst in train['question']])
     train['a_num_words'] = np.array([np.mean([len(parser.parse(ans)) for ans in anss]) for anss in np.array(train[['answerA','answerB','answerC','answerD']])])
 
 
@@ -198,423 +198,75 @@ class FeatureExtractor(object):
              self.lucene_corpus3.prp_index()
 
 
-    ALL_FEATURE_TYPES = {# "BASIC" features extracted from the questions and answers, w/o external corpus:
-                         'BASIC': 0,
-                         # Statistical corpus features:
-                         'ckhtml': 1, 'cktext': 2, 'simplewiki': 3,
-                         # Features computed using PyLucene:
-                         'lucene.1': 4, 'lucene.2': 5, 'lucene.3': 6
-                         }
-    """
-    ALL_FEATURE_TYPES = {# "BASIC" features extracted from the questions and answers, w/o external corpus:
-                         'BASIC': 0,
-                         # Statistical corpus features:
-                         'ck-hp_saylor.triplets.1': 1, 'ck-hp_saylor_oer.triplets.1': 2,  'qz_ck-ts.1': 3,
-                         'st2_qz_oer_ck-hp.1': 4, 'st2_qz_oer_ck-t.triplets.1': 5,
-                         'st2_qz_wk-pn_oer_ck-h.pairs.1': 6, 'st_qz.1': 7, 'st_qz.pairs2.1': 8, 'st_qz_ai.1': 9,
-                         'st_qz_saylor_ck-t.a1_vs_a2.1': 10, 'sw-pn_qz.1': 11,
-                         'sw-pn_ss_ck-t_ai.1': 12, 'sw2_ck-ts.1': 13, 'tr_st_qz.1': 14, 'tr_st_qz.2': 15, 'wk3_sw3.1': 16,
-                         'wk-pn_sw-pn_wb.a1_vs_a2.1': 17, 'st_qz.triplets13.1': 18, 'st_qz.Z': 19, 'wk-pn_sw-pn.1': 20,
-                         # Features computed using PyLucene:
-                         'lucene.1': 21, 'lucene.2': 22, 'lucene.3': 23, 'lucene.4': 24, 'lucene.5': 25, 'lucene.6': 26, 'lucene.7': 27,
-                         }
-    """
+    def prepare_features(self, dataf_q, dataf_b, train_df, cache_dir):
+        """
+        :param dataf_q: this is not used in my implementation
+        :param dataf_b:
+        :param train_df: note that we create word counter for training set only, that's why we need to pass this even we are creating features for valid set
+        :param cache_dir:
+        :return:
 
+        Basic Features:
+        1. AnswerInQuestionFunc(): calculate the set of all words of parsed from question, for each ans, calculate the fraction of
+        (# intersection of answer words and question words) / (# of total answer words). A little variation is when we parse, we can set
+        word stemming on
 
+        2. AnswersInAnswersFunc(): calculate for each answer, the avg ratio of its words appears in other questions. Will not use this feature
 
-    def prepare_basic_features(self, dataf_q, dataf_b, train_df, cache_dir):
-        self.cache_dir = '%s/%s' % (self.base_dir, cache_dir)
-        if not os.path.exists(self.cache_dir):
-            create_dirs([self.cache_dir])
-            stemmer1 = PorterStemmer()
-            stem1 = stemmer1.stem
-            check_same_question = not set(dataf_b['ID']).isdisjoint(train_df['ID'])
-            stemmed_parser  = SimpleWordParser(word_func=stem1, ignore_special_words=True , min_word_length=1)
+        3. AnswerCountFunc(count_type='count', parser): it will use the parser to parse all the answer(if use_question = True, will do the same for questions),
+           after all ans are parsed, this will build a counter dict for all the unique words, for each ans, the mean count of words in that ans is calculated as feature
 
-            func_name = 'ans_in_qst_stem'
-            self.add_answer_func(dataf_b, func=AnswersInQuestionFunc(parser=stemmed_parser), name=func_name)
+        4. AnswerCountFunc(count_type='correct', parser): same as above, but here only words from correct answers are used to build counter dict
 
-            func_name = 'ans_in_ans_stem'
-            self.add_answer_func(dataf_b, func=AnswersInAnswersFunc(parser=stemmed_parser), name=func_name)
+        5. AnswersLengthFunc(log_flag=False): this will gives relative length(# of char) of each ans to mean(answers for the same question)
 
-            func_name = 'ans_words_stem_count'
-            self.add_answer_func(dataf_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='count', parser=stemmed_parser, single_words=True), name=func_name)
-
-            func_name = 'ans_length_ratio'
-            self.add_answer_func(dataf_b, func=AnswersLengthFunc(log_flag=False), name=func_name)
-
-            func_name = 'ans_num_words'
-            self.add_answer_func(dataf_b, func=AnswersNumWordsFunc(), name=func_name)
-
-
-    def prepare_lucene_features(self, dataf_q, dataf_b, train_df, cache_dir):
-        pass
-
-
-    def prepare_features(self, dataf_q, dataf_b, train_df, aux_b, cache_dir, ftypes=None):
-        '''
-        Compute one or more features by running the relevant search function.
-        aux_b - an additional binary data source with possibly same questions as in dataf_b, to save computations
-        '''
-        if ftypes is not None:
-            assert (len(ftypes) > 0) and (set(ftypes).issubset(FeatureExtractor.ALL_FEATURE_TYPES.values())), \
-                    'Feature types should be non-empty subset of:\n%s' % FeatureExtractor.ALL_FEATURE_TYPES
+        Lucene Feature:
+        6. AnswersLuceneSearchFunc(lucene_corpus, max_docs, weight_func, score_func): for each ans, we search qst+ans in lucene_corpus, retrievel max_docs number
+        of documents, for the score returned by each documents, we can apply an optional score_func as transformation, then we use weight_func to weight
+        all these scores and sum as the feature of this ans
+        """
         self.cache_dir = '%s/%s' % (self.base_dir, cache_dir)
         create_dirs([self.cache_dir])
-
-        if self.print_level > 0:
-            print '-> Preparing features, cache dir = %s' % cache_dir
-
-        locdic = None
         stemmer1 = PorterStemmer()
         stem1 = stemmer1.stem
-        stemmer2 = LancasterStemmer()
-        stem2 = stemmer2.stem
-        stemmer3 = EnglishStemmer()
-        stem3 = stemmer3.stem
+        check_same_question = not set(dataf_b['ID']).isdisjoint(train_df['ID'])
+        stemmed_parser  = SimpleWordParser(word_func=stem1, ignore_special_words=True , min_word_length=1)
 
-        tag_weights1 = {'NN':1.5,'NNP':1.5,'NNPS':1.5,'NNS':1.5, 'VB':1.3,'VBD':1.3,'VBG':1.3,'VBN':1.3,'VBP':1.3,'VBZ':1.3,
-                        'JJ':1.0,'JJR':1.0,'JJS':1.0, 'RB':1.0,'RBR':1.0,'RBS':1.0,'RP':1.0}
-        tag_weight_func1 = lambda tag: tag_weights1.get(tag, 0.8)   # 0.8 is default if key not exist
+        func_name = 'ans_in_qst_stem'
+        self.add_answer_func(dataf_b, func=AnswersInQuestionFunc(parser=stemmed_parser), name=func_name)
 
-        tag_weights2 = {'NN':2.0,'NNP':2.0,'NNPS':2.0,'NNS':2.0, 'VB':1.5,'VBD':1.5,'VBG':1.5,'VBN':1.5,'VBP':1.5,'VBZ':1.5,
-                        'JJ':1.0,'JJR':1.0,'JJS':1.0, 'RB':0.8,'RBR':0.8,'RBS':0.8,'RP':0.8}
-        tag_weight_func2 = lambda tag: tag_weights2.get(tag, 0.5)
+        func_name = 'ans_in_ans_stem'
+        self.add_answer_func(dataf_b, func=AnswersInAnswersFunc(parser=stemmed_parser), name=func_name)
 
-        swr = '[\-\+\*\/\,\;\:\(\)]' # split_words_regexp
+        func_name = 'ans_words_stem_count'
+        self.add_answer_func(dataf_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='count', parser=stemmed_parser, single_words=True), name=func_name)
 
-        if 'correctAnswer' in dataf_q.columns:
-            targets_q = dict(zip(dataf_q.index,dataf_q['correctAnswer']))
-            targets_b = np.array(dataf_b['correct'])
-        else:
-            targets_q, targets_b = None, None
+        func_name = 'ans_length_ratio'
+        self.add_answer_func(dataf_b, func=AnswersLengthFunc(log_flag=False), name=func_name)
 
-        train_b = dataf_b
+        func_name = 'ans_num_words'
+        self.add_answer_func(dataf_b, func=AnswersNumWordsFunc(), name=func_name)
 
-        # ==================================================================================================================================
-        # Compute funcs with various combinations of corpora, parsers, and score params
-        # ==================================================================================================================================
-        ds_funcs = {
-                    # 1: 0.4448
-                    'ck-hp_saylor.triplets.1': {'corpora': [self.ck12html_para_corpus, self.saylor_corpus],
-                                                'parser': SimpleWordParser(word_func=stem3, tuples=[1,2,3], split_words_regexp=swr),
-                                                'num_words_qst': [None]+range(2,60), 'num_words_ans': [None]+range(2,40), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                                'score_params': {'coeffs': lambda n: 1.0/(1.0+np.arange(n)), 'calc_over_vs_under': True,
-                                                                 'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.4, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.7},
-                                                'recalc': False, 'skip': False},
-                    # 2: 0.4500
-                    'ck-hp_saylor_oer.triplets.1': {'corpora': [self.ck12html_para_corpus, self.saylor_corpus, self.oer_corpus],
-                                                    'parser': SimpleWordParser(word_func=stem2, tuples=[1,2,3], min_word_length=1),
-                                                    'num_words_qst': [None]+range(2,60), 'num_words_ans': [None]+range(2,40), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                                    'score_params': {'coeffs': lambda n: 1.0/(1.0+np.arange(n))**0.7, 'calc_over_vs_under': True,
-                                                                     'minword1_coeffs': lambda mw,nw: np.sqrt((1.0+mw)/(1.0+nw)), 'minword2_coeffs': lambda mw,nw: np.sqrt((1.0+mw)/(1.0+nw))},
-                                                    'recalc': False, 'skip': False},
-                    # 3: 0.4164
-                    'qz_ck-ts.1': {'corpora': [self.quizlet_corpus, self.ck12text_sent_corpus],
-                                   'parser': NltkTokenParser(word_func=lambda word,tag: stem3(word), word_func_requires_tag=False,
-                                                             tuples=[1], tag_weight_func=tag_weight_func1),
-                                   'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,20), 'score': 'hg', 'prob_type': 'tf-idf', 'tf_log_flag': False,
-                                   'score_params': {'minword1_coeffs': lambda mw,nw: np.sqrt((1.0+mw)/(1.0+nw)), 'minword2_coeffs': lambda mw,nw: np.sqrt((1.0+mw)/(1.0+nw))},
-                                   'recalc': False, 'skip': False},
-                    # 4: 0.4720
-                    'st2_qz_oer_ck-hp.1': {'corpora': [self.sstack_corpus2, self.quizlet_corpus, self.oer_corpus, self.ck12html_para_corpus],
-                                           'parser': SimpleWordParser(word_func=None, min_word_length=1),
-                                           'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': False,
-                                           'score_params': {'norm': lambda w: w**2/(np.sum(w**2) + 0.0),
-                                                            'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**1.4, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))},
-                                           'recalc': False, 'skip': False},
-                    # 5: 0.5256
-                    'st2_qz_oer_ck-t.triplets.1': {'corpora': [self.sstack_corpus2, self.quizlet_corpus, self.oer_corpus, self.ck12text_corpus],
-                                                   'parser': SimpleWordParser(word_func=stem3, tuples=[1,2,3], split_words_regexp=swr, min_word_length=1),
-                                                   'num_words_qst': [None]+range(2,60), 'num_words_ans': [None]+range(2,40), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': False,
-                                                   'score_params': {'coeffs': lambda n: 2.0/(2.0+np.arange(n))**0.7, 'calc_over_vs_under': True,
-                                                                    'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.4, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.6},
-                                                   'recalc': False, 'skip': False},
-                    # 6: 0.5388
-                    'st2_qz_wk-pn_oer_ck-h.pairs.1': {#'corpora': [self.sstack_corpus2, self.quizlet_corpus, self.wiki_corpus_pn, self.oer_corpus, self.ck12html_corpus],
-                                                      'corpora': [self.sstack_corpus4, self.quizlet_corpus, self.wiki_corpus_pn, self.oer_corpus, self.ck12html_corpus],
-                                                      'parser': SimpleWordParser(word_func=stem3, tuples=[1,2], split_words_regexp=swr, min_word_length=1),
-                                                      'num_words_qst': [None]+range(2,50), 'num_words_ans': [None]+range(2,30), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': False,
-                                                      'score_params': {'coeffs': lambda n: 1.0/(1.0+np.arange(n))**0.8, 'calc_over_vs_under': True,
-                                                                       'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.3, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.7},
-                                                      'recalc': False, 'skip': False},
-                    # 7: 0.5580
-                    'st_qz.1': {'corpora': [self.sstack_corpus, self.quizlet_corpus],
-                                'parser': SimpleWordParser(word_func=stem3, tuples=[1]),
-                                'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                'score_params': {'coeffs': lambda n: 1.0/(1.0+np.arange(n)), 'calc_over_vs_under': True,
-                                                 'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw)), 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))},
-                                'recalc': False, 'skip': False},
-                    # 8: 0.3340
-                    'st_qz.pairs2.1': {'corpora': [self.sstack_corpus, self.quizlet_corpus],
-                                       'parser': SimpleWordParser(word_func=stem3, tuples=[2], min_word_length=1),
-                                       'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                       'score_params': {'coeffs': lambda n: (2.0/(2.0+np.arange(n)))**1.4, 'calc_over_vs_under': True,
-                                                        'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.8, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.9},
-                                       'recalc': False, 'skip': False},
-                    # 9: 0.5184
-                    'st_qz_ai.1': {'corpora': [self.sstack_corpus, self.quizlet_corpus, self.ai2_corpus],
-                                   'parser': NltkTokenParser(word_func=lambda word,tag: stem2(word), word_func_requires_tag=False,
-                                                             tuples=[1], tag_weight_func=tag_weight_func1),
-                                   'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': False,
-                                   'score_params': {'coeffs': lambda n: 1.0/(1.0+np.arange(n))**0.3, 'calc_over_vs_under': True,
-                                                    'norm': lambda w: w**2/(np.sum(w**2) + 0.0),
-                                                    'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**2, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**1.5},
-                                   'recalc': False, 'skip': False},
-                    # 10: 0.3080
-                    'st_qz_saylor_ck-t.a1_vs_a2.1': {'corpora': [self.sstack_corpus, self.quizlet_corpus, self.saylor_corpus, self.ck12text_corpus],
-                                                     'parser': SimpleWordParser(word_func=stem2, tuples=[1]),
-                                                     'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                                     'score_params': {'coeffs': lambda n: 1.0/(1.0+np.arange(n)), 'calc_over_vs_under': True,
-                                                                      'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw)), 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))},
-                                                     'apairs': {'sim_scores_comb_weights': ([10, 3, 1], [1, 3, 10]), 'search_type': 'a1_vs_a2'},
-                                                     'recalc': False, 'skip': False},
-                    # 11: 0.4628
-                    'sw-pn_qz.1': {'corpora': [self.simplewiki_corpus_pn, self.quizlet_corpus],
-                                   'parser': SimpleWordParser(word_func=stem3, tuples=[1], split_words_regexp=swr),
-                                   'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                   'score_params': {'coeffs': lambda n: 1.0/(1.0+np.arange(n))**2.0,
-                                                    'minword1_coeffs': lambda mw,nw: np.sqrt((1.0+mw)/(1.0+nw)), 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.8},
-                                   'recalc': False, 'skip': False},
-                    # 12: 0.4620
-                    'sw-pn_ss_ck-t_ai.1': {'corpora': [self.simplewiki_corpus_pn, self.sstack_corpus, self.ck12text_corpus, self.ai2_corpus],
-                                           'parser': SimpleWordParser(word_func=stem2, tuples=[1], split_words_regexp=swr),
-                                           'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                           'score_params': {'coeffs': lambda n: 1.0/(1.0+np.arange(n))**0.3,
-                                                            'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**1.8, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**1.5},
-                                           'recalc': False, 'skip': False},
-                    # 13: 0.4192
-                    'sw2_ck-ts.1': {'corpora': [self.simplewiki_corpus2, self.ck12text_sent_corpus],
-                                    'parser': SimpleWordParser(word_func=stem2, tuples=[1], split_words_regexp=swr),
-                                    'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': False,
-                                    'score_params': {'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw)), 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**1.8,
-                                                     'norm': lambda w: w**2/(np.sum(w**2) + 0.0)},
-                                    'recalc': False, 'skip': False},
-                    # 14: 0.5468
-                    'tr_st_qz.1': {'corpora': [self.sstack_corpus, self.quizlet_corpus],
-                                   'parser': SimpleWordParser(word_func=stem1, tuples=[1], split_words_regexp=swr, min_word_length=1),
-                                   'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,15), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                   'score_params': {'coeffs': lambda n: np.sqrt(1.0/(1.0+np.arange(n))), 'calc_over_vs_under': True,
-                                                    'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**1.5, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**2},
-                                   'recalc': False, 'skip': False, 'train': True},
-                    # 15: 0.5088
-                    'tr_st_qz.2': {'corpora': [self.sstack_corpus, self.quizlet_corpus],
-                                   'parser': NltkTokenParser(word_func=None, word_func_requires_tag=False, tuples=[1], tag_weight_func=tag_weight_func1),
-                                   'num_words_qst': [None]+range(2,30), 'num_words_ans': [None]+range(2,15), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': False,
-                                   'score_params': {'coeffs': lambda n: np.ones(n), 'calc_over_vs_under': True,
-                                                    'norm': lambda w: w**2/(np.sum(w**2) + 0.0),
-                                                    'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**0.75, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))},
-                                   'recalc': False, 'skip': False, 'train': True},
-                    # 16: 0.4028
-                    'wk3_sw3.1': {'corpora': [self.wiki_corpus3, self.simplewiki_corpus3],
-                                  'parser': SimpleWordParser(word_func=stem1, tuples=[1], split_words_regexp=swr),
-                                  'num_words_qst': [None]+range(3,40), 'num_words_ans': [None]+range(2,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                  'score_params': {'coeffs': lambda n: (1.0/(1.0+np.arange(n)))**1.2},
-                                  'recalc': False, 'skip': False},
-                    # 17: over 0.2872, under 0.2908
-                    'wk-pn_sw-pn_wb.a1_vs_a2.1': {'corpora': [self.wiki_corpus_pn, self.simplewiki_corpus_pn, self.wikibooks_corpus],
-                                                  'parser': SimpleWordParser(word_func=stem3, tuples=[1], split_words_regexp=swr),
-                                                  'num_words_qst': [None]+range(1,30), 'num_words_ans': [None]+range(1,20), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': False,
-                                                  'score_params': {'coeffs': lambda n: 1.0/(1.0+np.arange(n))**0.7, 'calc_over_vs_under': True,
-                                                                   'minword1_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**1.5, 'minword2_coeffs': lambda mw,nw: ((1.0+mw)/(1.0+nw))**1.5},
-                                                  'apairs': {'sim_scores_comb_weights': ([12, 2, 1], [1, 2, 12]), 'search_type': 'a1_vs_a2'},
-                                                  'recalc': False, 'skip': False},
-                    # 18: 0.5500
-                    'st_qz.triplets13.1': {'corpora': [self.sstack_corpus, self.quizlet_corpus],
-                                           'parser': SimpleWordParser(word_func=stem1, tuples=[1,3], min_word_length=1, split_words_regexp=swr),
-                                           'num_words_qst': [None]+range(2,60), 'num_words_ans': [None]+range(2,30), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': True,
-                                           'score_params': {'coeffs': lambda n: 3.0/(3.0+np.arange(n)), 'calc_over_vs_under': True,
-                                                            'minword1_coeffs': lambda mw,nw: ((3.0+mw)/(3.0+nw))**1.2, 'minword2_coeffs': lambda mw,nw: ((3.0+mw)/(3.0+nw))**1.5},
-                                           'recalc': False, 'skip': False},
-                    # 19: 0.45126
-                    'st_qz.Z': {'corpora': [self.sstack_corpus, self.quizlet_corpus],
-                                'parser': SimpleWordParser(word_func=stem3, split_words_regexp=swr),
-                                'norm_scores': True,
-                                'recalc': False, 'skip': False, 'zscore': True},
-                    # 20: 0.3884
-                    'wk-pn_sw-pn.1': {'corpora': [self.wiki_corpus_pn, self.simplewiki_corpus_pn],
-                                      'parser': SimpleWordParser(word_func=None, tuples=[1], split_words_regexp=swr),
-                                      'num_words_qst': [None]+range(2,40), 'num_words_ans': [None]+range(2,30), 'score': 'weights', 'prob_type': 'tf-idf', 'tf_log_flag': False,
-                                      'score_params': {'norm': lambda w: w**1.5/(np.sum(w**1.5) + 0.0)},
-                                      'recalc': False, 'skip': False},
-                    # 21: 0.5424
-                    'lucene.1': {'lucene_corpus': self.lucene_corpus1,
-                                 'parser': self.lucene_parser1,
-                                 'max_docs': 1000, 'weight_func': lambda n: 1.0/(1.0+np.arange(n))**1.5, 'score_func': None, 'norm_scores': True,
-                                 'recalc': False, 'skip': False, 'lucene': True},
-                    # 22: 0.5304
-                    'lucene.2': {'lucene_corpus': self.lucene_corpus2,
-                                 'parser': self.lucene_parser2,
-                                 'max_docs': 500, 'weight_func': lambda n: 1.0/(1.0+np.arange(n))**1.2, 'score_func': lambda s: s**1.5, 'norm_scores': True,
-                                 'recalc': False, 'skip': False, 'lucene': True},
-                    # 23: 0.5388
-                    'lucene.3': {'lucene_corpus': self.lucene_corpus3,
-                                 'parser': self.lucene_parser3,
-                                 'max_docs': 3000, 'weight_func': lambda n: 1.0/(3.0+np.arange(n))**1.4, 'score_func': lambda s: (s/100.0)**5, 'norm_scores': True,
-                                 'recalc': False, 'skip': False, 'lucene': True},
-                    # 24: 0.5500
-                    'lucene.4': {'lucene_corpus': self.lucene_corpus4,
-                                 'parser': self.lucene_parser4,
-                                 'max_docs': 2500, 'weight_func': lambda n: 1.0/(1.0+np.arange(n))**2.2, 'score_func': lambda s: (s/100.0)**4, 'norm_scores': True,
-                                 'recalc': False, 'skip': False, 'lucene': True},
-                    # 25: 0.4292
-                    'lucene.5': {'lucene_corpus': self.lucene_corpus5,
-                                 'parser': self.lucene_parser5,
-                                 'max_docs': 750, 'weight_func': lambda n: 1.0/(2.0+np.arange(n))**1.6, 'score_func': lambda s: (s/10.0)**2.5, 'norm_scores': True,
-                                 'recalc': False, 'skip': False, 'lucene': True},
-                    # 26: 0.4672
-                    'lucene.6': {'lucene_corpus': self.lucene_corpus6,
-                                 'parser': self.lucene_parser6,
-                                 'max_docs': 800, 'weight_func': lambda n: 1.0/(5.0+np.arange(n))**2, 'score_func': lambda s: (s/10.0)**3, 'norm_scores': True,
-                                 'recalc': False, 'skip': False, 'lucene': True},
-                    # 27: 0.4684
-                    'lucene.7': {'lucene_corpus': self.lucene_corpus7,
-                                 'parser': self.lucene_parser7,
-                                 'max_docs': 250, 'weight_func': lambda n: 1.0/(10.0+np.arange(n)), 'score_func': lambda s: (s+2.0)**3.4, 'norm_scores': True,
-                                 'recalc': False, 'skip': False, 'lucene': True},
-                   }
+        func_name = 'luc_stem_1'
+        self.add_answer_func(dataf_b,
+                             func=AnswersLuceneSearchFunc(lucene_corpus=self.lucene_corpus1, parser=self.lucene_parser1,
+                             max_docs=250, weight_func=lambda n: 1.0/(5.0+np.arange(n))**2, score_func=lambda s: (s/10.0)**3,
+                             norm_scores= True),
+                             name= func_name)
 
-        check_same_question = not set(train_b['ID']).isdisjoint(train_df['ID'])
+        func_name = 'luc_stem_2'
+        self.add_answer_func(dataf_b,
+                             func=AnswersLuceneSearchFunc(lucene_corpus=self.lucene_corpus2, parser=self.lucene_parser2,
+                             max_docs=250, weight_func=lambda n: 1.0/(5.0+np.arange(n))**2, score_func=lambda s: (s/10.0)**3,
+                             norm_scores= True),
+                             name= func_name)
 
-        for fn,params in sorted(ds_funcs.iteritems()):
-            if params['skip']: continue # always False
-            if (ftypes is not None) and (FeatureExtractor.ALL_FEATURE_TYPES[fn] not in ftypes): continue
-            if params.has_key('zscore') or params.has_key('lucene'):
-                func_name = fn
-            else:
-                func_name = ['%s_over'%fn, '%s_under'%fn]
-            if self.print_level > 1:
-                print 'Computing features: %s' % str(func_name)
-            if params.has_key('corpora'):
-                locdic = lambda: CorpusReader.build_locdic_from_outfile(filename=params['corpora'], parser=params['parser'],
-                                                                        min_word_docs_frac=0, max_word_docs_frac=1, min_word_count_frac=0, max_word_count_frac=1)
-            else:
-                locdic = None
-            norm_scores = params['norm_scores'] if params.has_key('norm_scores') else self.norm_scores_default
-            self.recalc = params['recalc']  # always False
-            if params.has_key('train'):
-                assert params['train']
-                self.add_answer_func(train_b, aux_b,
-                                     func=AnswersTrainDoubleSearchFunc(train_df[train_df['correct']==1], check_same_question=check_same_question,
-                                                                       base_locdic=locdic, parser=params['parser'],
-                                                                       num_words_qst=params['num_words_qst'], num_words_ans=params['num_words_ans'],
-                                                                       score=params['score'], score_params=params['score_params'], norm_scores=norm_scores,
-                                                                       prob_type=params['prob_type'], tf_log_flag=params['tf_log_flag']),
-                                     name=func_name)
-
-            elif params.has_key('apairs'):
-                self.add_answer_func(train_b, aux_b,
-                                     func=AnswersPairsDoubleSearchFunc(locdic=locdic, parser=params['parser'],
-                                                                       num_words_qst=params['num_words_qst'], num_words_ans=params['num_words_ans'],
-                                                                       score=params['score'], score_params=params['score_params'], norm_scores=norm_scores,
-                                                                       prob_type=params['prob_type'], tf_log_flag=params['tf_log_flag'],
-                                                                       sim_scores_comb_weights=params['apairs']['sim_scores_comb_weights'], search_type=params['apairs']['search_type']),
-                                     name=func_name)
-
-            elif params.has_key('zscore'):
-                self.add_answer_func(train_b, aux_b,
-                                     func=AnswersWordZscoreFunc(locdic=locdic, parser=params['parser'], norm_scores=norm_scores),
-                                     name=func_name)
-            elif params.has_key('lucene'):
-                self.add_answer_func(train_b, aux_b,
-                                     func=AnswersLuceneSearchFunc(lucene_corpus=params['lucene_corpus'], parser=params['parser'],
-                                                                  max_docs=params['max_docs'], weight_func=params['weight_func'], score_func=params['score_func'],
-                                                                  norm_scores=norm_scores),
-                                     name=func_name)
-            else:
-                self.add_answer_func(train_b, aux_b,
-                                     func=AnswersDoubleSearchFunc(locdic=locdic, parser=params['parser'],
-                                                                  num_words_qst=params['num_words_qst'], num_words_ans=params['num_words_ans'],
-                                                                  score=params['score'], score_params=params['score_params'], norm_scores=norm_scores,
-                                                                  prob_type=params['prob_type'], tf_log_flag=params['tf_log_flag']),
-                                     name=func_name)
-            if ((self.print_level > 1) or self.recalc) and (targets_q is not None):
-                if params.has_key('zscore') or params.has_key('lucene'):
-                    print ' AUC of %s: %.4f' % (func_name, calc_auc(targets_b, train_b[func_name], two_sides=True))
-                    print ' Accuracy of %s: %.4f' % (func_name, calc_accuracy(targets_q, get_predictions_from_binary_dataf(train_b, func_name, direction='max')))
-                else:
-                    print ' AUC of %s: %.4f' % (func_name[0], calc_auc(targets_b, train_b[func_name[0]], two_sides=True))
-                    print ' Accuracy of %s: %.4f' % (func_name[0], calc_accuracy(targets_q, get_predictions_from_binary_dataf(train_b, func_name[0], direction='max')))
-                    print ' AUC of %s: %.4f' % (func_name[1], calc_auc(targets_b, train_b[func_name[1]], two_sides=True))
-                    print ' Accuracy of %s: %.4f' % (func_name[1], calc_accuracy(targets_q, get_predictions_from_binary_dataf(train_b, func_name[1], direction='max')))
-            gc.collect()
-            self.recalc = False
-
-        # ==================================================================================================================================
-        # Compute the "basic" features, ie, those obtained from the questions+answers, without any external corpus
-        # ==================================================================================================================================
-        if (ftypes is None) or (FeatureExtractor.ALL_FEATURE_TYPES['BASIC'] in ftypes):
-            simple_parser   = SimpleWordParser(word_func=None , ignore_special_words=False, min_word_length=1)
-            pairs_parser    = SimpleWordParser(word_func=None , ignore_special_words=False, min_word_length=1, tuples=[1,2])
-            stemmed_parser  = SimpleWordParser(word_func=stem1, ignore_special_words=True , min_word_length=1)
-            stemmed_parserB = SimpleWordParser(word_func=stem3, ignore_special_words=True , min_word_length=2, split_words_regexp=swr)
-            stemmed_parserC = SimpleWordParser(word_func=stem2, ignore_special_words=True , min_word_length=2, split_words_regexp=swr)
-            stemmed_parser2 = SimpleWordParser(word_func=stem2, ignore_special_words=False, min_word_length=1)
-            stemmed_parser3 = SimpleWordParser(word_func=stem3, ignore_special_words=False, min_word_length=1)
-            stemmed_pairs_parser3 = SimpleWordParser(word_func=stem3, ignore_special_words=False, min_word_length=1, tuples=[1,2], split_words_regexp=swr)
-
-            func_name = 'ans_in_qst'
-            self.add_answer_func(train_b, aux_b, func=AnswersInQuestionFunc(), name=func_name)
-            func_name = 'ans_in_qst_stem'
-            self.add_answer_func(train_b, aux_b, func=AnswersInQuestionFunc(parser=stemmed_parser), name=func_name)
-
-            func_name = 'ans_in_ans'
-            self.add_answer_func(train_b, aux_b, func=AnswersInAnswersFunc(), name=func_name)
-            func_name = 'ans_in_ans_stem'
-            self.add_answer_func(train_b, aux_b, func=AnswersInAnswersFunc(parser=stemmed_parser), name=func_name)
-
-            func_name = 'ans_count'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='count'), name=func_name) # 0.2532 (0.5313)
-            func_name = 'ans_words_stem_count'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='count', parser=stemmed_parser, single_words=True), name=func_name)
-            func_name = 'ans_words_stem_count_nonorm'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='count', parser=stemmed_parserC, single_words=True, norm_scores=False), name=func_name)
-            func_name = 'ans_qst_words_stem_count'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='count', parser=stemmed_parserB, single_words=True, use_questions=True), name=func_name)
-
-            func_name = 'ans_correct'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='correct'), name=func_name)
-            func_name = 'ans_words_stem_correct'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='correct', parser=stemmed_parser, single_words=True), name=func_name)
-            func_name = 'ans_words_stem_correct_nonorm'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='correct', parser=stemmed_parserB, single_words=True, norm_scores=False), name=func_name)
-            func_name = 'ans_qst_words_stem_correct'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='correct', parser=stemmed_parser3, single_words=True, use_questions=True), name=func_name)
-            func_name = 'ans_words_stem_pairs_correct'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='correct', parser=stemmed_pairs_parser3, single_words=True), name=func_name)
-
-            func_name = 'ans_pval'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='pval'), name=func_name)
-            func_name = 'ans_stem_pval'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='pval', parser=stemmed_parser, single_words=False), name=func_name)
-            func_name = 'ans_words_stem_pval'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='pval', parser=stemmed_parser3, single_words=True), name=func_name)
-            func_name = 'ans_words_pairs_zscore'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='zscore', parser=pairs_parser, single_words=True), name=func_name)
-            func_name = 'ans_words_stem_pval'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='pval', parser=stemmed_parser3, single_words=True), name=func_name)
-            func_name = 'ans_words_stem_zscore'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='zscore', parser=stemmed_parser2, single_words=True), name=func_name)
-
-            func_name = 'ans_corr_vs_qst_count'
-            self.add_answer_func(train_b, aux_b, func=AnswerCountFunc(train_df, check_same_question=check_same_question, count_type='ans_vs_qst', parser=stemmed_parser, single_words=True, norm_scores=False), name=func_name)
-
-            func_name = 'ans_length'
-            self.add_answer_func(train_b, aux_b, func=AnswersLengthFunc(log_flag=True ), name=func_name)
-            func_name = 'ans_length_ratio'
-            self.add_answer_func(train_b, aux_b, func=AnswersLengthFunc(log_flag=False), name=func_name)
-            func_name = 'ans_num_words'
-            self.add_answer_func(train_b, aux_b, func=AnswersNumWordsFunc(), name=func_name)
-
-            func_name = 'is_BC'
-            self.add_answer_func(train_b, aux_b, func=AnswersIsBCFunc(), name=func_name)
-            func_name = 'BCDA'
-            self.add_answer_func(train_b, aux_b, func=AnswersBCDAFunc(), name=func_name)
-
-            func_name = 'is_numerical'
-            self.add_answer_func(train_b, aux_b, func=AnswersIsNumericalFunc(), name=func_name)
-
-        print '-> Finished preparing features (types: %s)' % ('all' if ftypes is None else ', '.join(['%s'%ft for ft in ftypes]))
+        func_name = 'luc_stem_3'
+        self.add_answer_func(dataf_b,
+                             func=AnswersLuceneSearchFunc(lucene_corpus=self.lucene_corpus3, parser=self.lucene_parser3,
+                             max_docs=250, weight_func=lambda n: 1.0/(5.0+np.arange(n))**2, score_func=lambda s: (s/10.0)**3,
+                             norm_scores= True),
+                             name= func_name)
 
     def _cache_filename(self, fname):
         return '%s/%s.pkl' % (self.cache_dir, fname)

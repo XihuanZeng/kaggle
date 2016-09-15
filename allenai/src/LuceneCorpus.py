@@ -99,19 +99,14 @@ class LuceneCorpus(object):
         else:
             search_text = ' '.join(words)
         print 'search_text: %s' % search_text
+        # note that whatever parser that we put as our argument, eventually when searching with query, we will use Lucene parser to split query words
         query = QueryParser(Version.LUCENE_CURRENT, "text", self._analyzer).parse(search_text)
         hits = searcher.search(query, max_docs)
-#         print "Found %d document(s) that matched query '%s':" % (hits.totalHits, query)
 
         score_sum = 0.0
         weights = weight_func(len(hits.scoreDocs))
         for hit,weight in zip(hits.scoreDocs, weights):
             score_sum += weight * score_func(hit.score)
-#             print ' score %.3f , weight %.5f -> %.5f' % (hit.score, weight, weight*hit.score)
-#             print hit.score, hit.doc, hit.toString()
-#             doc = searcher.doc(hit.doc)
-#             print doc.get("text").encode("utf-8")
-#         print 'score_sum = %.5f' % score_sum
         return score_sum
 
     def _get_writer(self, analyzer=None, create=False):

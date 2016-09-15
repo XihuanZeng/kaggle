@@ -1,12 +1,9 @@
-import sys
-import json
-import pandas as pd
-import numpy as np
-import time
 import os
-from IO import read_input_file, load_from_pkl, save_to_pkl
+import numpy as np
+from IO import read_input_file, load_from_pkl
 from DataPreparation import sub_complex_answers, prp_binary_dataf
 from FeatureExtractor import FeatureExtractor, add_qa_features
+from sklearn.linear_model import LogisticRegression
 
 # set path
 base_dir = os.path.join('..')
@@ -71,38 +68,33 @@ if data_pkl_file is None:
     # there are 2 types of features:
     # 1. Basic feature that only looks at the dataset
     # 2. Lucene features that returns the score produced by Lucene index
-    """
-    Basic Features:
-    1. AnswerInQuestionFunc(): calculate the set of all words of parsed from question, for each ans, calculate the fraction of
-    (# intersection of answer words and question words) / (# of total answer words). A little variation is when we parse, we can set
-    word stemming on
-
-    2. AnswersInAnswersFunc(): calculate for each answer, the avg ratio of its words appears in other questions. Will not use this feature
-
-    3. AnswerCountFunc(count_type='count', parser): it will use the parser to parse all the answer(if use_question = True, will do the same for questions),
-       after all ans are parsed, this will build a counter dict for all the unique words, for each ans, the mean count of words in that ans is calculated as feature
-
-    4. AnswerCountFunc(count_type='correct', parser): same as above, but here only words from correct answers are used to build counter dict
-
-    5. AnswersLengthFunc(log_flag=False): this will gives relative length(# of char) of each ans to mean(answers for the same question)
-    """
     # prepare basic features
-    fext.prepare_basic_features(dataf_q=train_q, dataf_b=train_b, train_df=train_b, cache_dir='funcs_train')
-    fext.prepare_basic_features(dataf_q=valid_q, dataf_b=valid_b, train_df=train_b, cache_dir='funcs_valid')
-    fext.prepare_basic_features(dataf_q=test_q, dataf_b=test_b , train_df=train_b, cache_dir='funcs_test')
+    fext.prepare_features(dataf_q=train_q, dataf_b=train_b, train_df=train_b, cache_dir='funcs_train')
+    fext.prepare_features(dataf_q=valid_q, dataf_b=valid_b, train_df=train_b, cache_dir='funcs_valid')
+    fext.prepare_features(dataf_q=test_q, dataf_b=test_b, train_df=train_b, cache_dir='funcs_test')
 
-    
+# train the data with Logistic Regression
+model = LogisticRegression()
+train_cache_dir = os.path.join(base_dir, 'funcs_train')
+for file in os.listdir(train_cache_dir):
+    if file.endswith('pkl'):
+        train_b[file[:-4]] = load_from_pkl(os.path.join(base_dir, 'funcs_train', file))
+model.fit(train_b[[x for x in train_b.columns if x not in ['ID', 'answer', 'question', 'correct', 'q_num_words', 'ans_name']]], train_b['correct'])
 
+# predict answer for the test question
+test_cache_dir = os.path.join(base_dir, 'funcs_test')
+for file in os.listdir(test_cache_dir):
+    if file.endswith('pkl'):
+        test_b[file[:-4]] = load_from_pkl(os.path.join(base_dir, 'funcs_test', file))
+raw_result = model.predict_proba(test_b[[x for x in train_b.columns if x not in ['ID', 'answer', 'question', 'correct', 'q_num_words', 'ans_name']]])
+a = map(lambda x: x[1], raw_result)
+b = np.array(a)
+b = b.reshape((len(a)/4, 4))
+result_dict = {0: 'A', 1: 'B', 2: 'C', 3: 'D'}
+result = map(lambda x: result_dict[np.argmax(x)], b)
 
-
-
-dataf_q=train_q
-dataf_b=train_b
-train_df=train_b
-aux_b=valid_b
-cache_dir='funcs_train'
-
-
-train_q['correctAnswer']
-valid_q['correctAnswer']
-test_q['correctAnswer']
+# save result as text
+with open(os.path.join(base_dir, 'submission.txt'), 'wt') as f:
+    for i in result:
+        f.write(str(i) + '\n')
+f.close()
