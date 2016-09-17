@@ -50,7 +50,7 @@ def generate_libffm_kth_model(data, dict_list, categorical_features, k):
 """
 import pandas as pd
 data = pd.read_csv('/home/xihuan/gitrepos/kaggle/expedia/data/model_input/train/train0.csv')
-
+data = pd.read_csv('/home/xihuan/gitrepos/kaggle/expedia/data/tr.csv')
 data.columns.values
 
 test = pd.read_csv('/home/xihuan/gitrepos/kaggle/expedia/data/model_input/test/test0.csv')
@@ -68,3 +68,35 @@ array(['Unnamed: 0', 'Unnamed: 0.1', 'Unnamed: 0.1', 'date_time',
        'y', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9',
        'c10', 'c11', 'libffm_score'], dtype=object)
 """
+
+
+# data = pd.read_csv('/home/xihuan/Downloads/coupon/coupon_list_train.csv')
+
+
+
+import itertools
+import numpy as np
+from scipy import stats
+import pylab as pl
+from sklearn import svm, linear_model, cross_validation
+
+
+
+import json
+with open('../data/dict/train_count_dict.json', 'rb') as f:
+    train_count_dict = json.load(f)
+f.close()
+
+train_count_dict['1']
+
+f = open('../data/dict/train_count_dict.json', 'rb')
+json.load(f)
+
+
+
+
+
+
+
+
+

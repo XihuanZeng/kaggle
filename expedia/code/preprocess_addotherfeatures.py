@@ -3,7 +3,7 @@
 #                 (num of sample whose hotel_cluster=i and its variable X has level j) / (num of sample whose hotel_cluster=i)
 #                 where num of sample is weighted by book:17, click:3
 
-# historical book and click ratio features: book and click ratio of cluster i that has attribute of jth booking.
+# historical book and click ratio features: book and click ratio of cluster i that, where cluster i is the booked hotel of
 #                                  there are two set of attributes
 #                                  1. srch_destination_id
 #                                  2. (srch_rm_cnt, srch_adults_cnt, srch_children_cnt) combination
@@ -30,7 +30,7 @@ def create_feature_dict(data, features):
 
 
 
-def add_count_features(data, train_or_test,
+def add_count_features(train_or_test,
                        selected_features = ['site_name', 'posa_continent', 'user_location_country', 'user_location_region', 'user_location_city',
                                             'is_mobile', 'is_package', 'channel', 'srch_destination_id', 'hotel_continent', 'hotel_country',
                                             'hotel_market']):
@@ -39,6 +39,7 @@ def add_count_features(data, train_or_test,
     f.close()
     for i in range(100):
         # add count features for each cluster
+        data = pd.read_csv('../data/model_input/%s/%s%s.csv' % (train_or_test, train_or_test, i))
         for j in range(len(selected_features)):
             feature_dict = count_dict[str(i)][selected_features[j]]
             feature_dict = defaultdict(lambda: 0, feature_dict)
@@ -46,7 +47,12 @@ def add_count_features(data, train_or_test,
         data.to_csv('../data/model_input/%s/%s%s.csv' % (train_or_test, train_or_test, i))
 
 
-def add_historical_book_click_feature(cluster, feature_dict, train_or_test):
+def add_historical_book_click_feature(data, features, train_or_test):
+    feature_dict = create_feature_dict(data, features)
+    for i in range(100):
+        pass
+
+
 
 
 
@@ -73,15 +79,13 @@ te = pd.read_csv('../data/te.csv')
 
 
 # add count features
-for i in range(100):
-    train_data = pd.read_csv('../data/model_input/train/train%s.csv' % i)
-    add_count_features(train_data, 'train')
-    test_data = pd.read_csv('../data/model_input/test/test%s.csv' % i)
-    add_count_features(test_data, 'test')
+add_count_features('train')
+add_count_features('test')
 
 # add historical book click ratios as feature
-f1 = create_feature_dict(ho,['srch_rm_cnt', 'srch_adults_cnt', 'srch_children_cnt'])
-f2
+f1 = create_feature_dict(ho,['srch_destination_id'])
+f2 = create_feature_dict(pd.concat([ho, tr]),['srch_destination_id'])
+
 
 
 

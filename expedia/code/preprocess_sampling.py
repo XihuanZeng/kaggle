@@ -6,6 +6,14 @@ import pandas as pd
 import random
 
 
+class Sampling():
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def split(self):
+        pass
+
+
 
 
 def create_feature_dict(dataset, feature_name, offset):

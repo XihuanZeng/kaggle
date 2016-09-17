@@ -23,3 +23,4 @@ step 5: use libffm model to give score on each training and test set and append 
 bash ../addfeature_libffm.sh
 
 step 6: create input that feed into xgboost:pairwise
+
