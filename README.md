@@ -1,2 +1,2 @@
 # kaggle
-currently shifting code. The code here is not complete
+Currently shifting code for the project expedia and yelp. The allenai is complete
