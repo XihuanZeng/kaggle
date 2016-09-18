@@ -1,5 +1,5 @@
 Implementation of Kaggle Allen AI Science Challenge
-The tasks is to build a Question Answering system for 8th grade science multiple choice questions
+The tasks is to build a Question Answering system for 8th grade science multiple choice questions.
 The problem is solved through mining Document Databases(Lucene). These Document Databases stored and indexed text text cleaned from various sources(Wikipedia dump, Online Textbook, PDF Textbook). Relevance score is given for each question-answer pair, which are used as features. Finally a Logistic Regression is build on those features as well as statistical features of the question-answer pair.
 
 Idea inspired by Cardal(winner of competition)
