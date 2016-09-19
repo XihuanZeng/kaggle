@@ -5,17 +5,6 @@ import pickle
 import pandas as pd
 import random
 
-
-class Sampling():
-    def __init__(self, dataset):
-        self.dataset = dataset
-
-    def split(self):
-        pass
-
-
-
-
 def create_feature_dict(dataset, feature_name, offset):
     """
     create one-hot encoding for each categorical level and given a universal id corresponding to that variable
@@ -31,6 +20,10 @@ def create_feature_dict(dataset, feature_name, offset):
         json.dump(levels_dict, f)
     f.close()
     return len(levels)
+
+
+
+
 
 
 def main():

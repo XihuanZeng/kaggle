@@ -25,5 +25,12 @@ bash ../addfeature_libffm.sh
 step 6: create input that feed into xgboost:pairwise
 
 
+// New Procedure
+step 1: sampling data from train.csv, select 100,000 users for analysis
+python samples.py
+
+
+
+
 
 

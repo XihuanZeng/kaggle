@@ -94,9 +94,19 @@ json.load(f)
 
 
 
+import os
+model_input_dir = '../data/model_input'
+set(['train%s.csv' % i for i in range(100)]) < set(os.listdir(model_input_dir))
+dict_dir = '../data/dict'
+categorical_features = ['site_name', 'posa_continent', 'user_location_country', 'user_location_region', 'user_location_city',
+                            'is_mobile', 'is_package', 'channel', 'srch_destination_id', 'hotel_continent', 'hotel_country',
+                            'hotel_market']
+set(['%s.json' % feature for feature in categorical_features]) < set(os.listdir(dict_dir))
 
 
+SAME_ATTRIBUTES = [['srch_destination_id'], ['srch_destination_id', 'user_location_country'], ['srch_destination_id', 'srch_rm_cnt'],
+                   ['srch_destination_id', 'srch_children_cnt'], ['srch_destination_id', 'srch_adults_cnt'],
+                   ['srch_destination_id', 'month'], ['srch_destination_id', 'is_package']]
 
-
-
-
+features = SAME_ATTRIBUTES[0]
+'-'.join(features)
